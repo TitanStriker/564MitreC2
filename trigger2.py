@@ -4,7 +4,6 @@ import time
 
 # CONFIGURATION
 HTTP_SERVER_PORT = 80
-SERVER_SCRIPT = 'server.py'
 FIRST_STAGE_SCRIPT = 'first_stage.py'
 BEACHHEAD_DIR = 'beachhead'
 
@@ -46,29 +45,3 @@ except FileNotFoundError:
     print(f"Error: Could not find '{FIRST_STAGE_SCRIPT}'")
     http_server.terminate()
     sys.exit(1)
-
-time.sleep(1)
-
-# Start the Python server after first_stage.py completes
-print(f"Starting {SERVER_SCRIPT}...")
-try:
-    server = subprocess.Popen([sys.executable, SERVER_SCRIPT])
-    print(f"{SERVER_SCRIPT} started (PID: {server.pid})")
-except Exception as e:
-    print(f"Error starting {SERVER_SCRIPT}: {e}")
-    http_server.terminate()
-    sys.exit(1)
-
-print("\n--- Services running ---")
-print(f"  • HTTP server (scripts): port {HTTP_SERVER_PORT}")
-print(f"  • {SERVER_SCRIPT}: running")
-print("Press Ctrl+C to shut down.")
-
-try:
-    # Keep the server running
-    server.wait()
-except KeyboardInterrupt:
-    print("\nShutting down...")
-    http_server.terminate()
-    server.terminate()
-    print("Clean exit.")
