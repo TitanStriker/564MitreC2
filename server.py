@@ -14,7 +14,7 @@ def dec(ciphertext):
 
 port = 8080
 key = b"ED IS COOL"
-s.connect(('10.37.1.', port)) 
+s.connect(('10.37.1.248', port)) 
 
 types = ['HELO', 'EXIT', 'READ', 'RITE', 'CMD', 'ERR']
 
