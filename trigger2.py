@@ -33,7 +33,23 @@ except Exception as e:
 
 time.sleep(1)
 
-# Start the Python server
+# Run first stage script
+print(f"Running {FIRST_STAGE_SCRIPT}...")
+try:
+    first_stage = subprocess.run([sys.executable, FIRST_STAGE_SCRIPT], check=True)
+    print(f"{FIRST_STAGE_SCRIPT} completed successfully")
+except subprocess.CalledProcessError as e:
+    print(f"Error running {FIRST_STAGE_SCRIPT}: {e}")
+    http_server.terminate()
+    sys.exit(1)
+except FileNotFoundError:
+    print(f"Error: Could not find '{FIRST_STAGE_SCRIPT}'")
+    http_server.terminate()
+    sys.exit(1)
+
+time.sleep(1)
+
+# Start the Python server after first_stage.py completes
 print(f"Starting {SERVER_SCRIPT}...")
 try:
     server = subprocess.Popen([sys.executable, SERVER_SCRIPT])
@@ -43,31 +59,13 @@ except Exception as e:
     http_server.terminate()
     sys.exit(1)
 
-time.sleep(1)
-
-# Run first stage script
-print(f"Running {FIRST_STAGE_SCRIPT}...")
-try:
-    first_stage = subprocess.Popen([sys.executable, FIRST_STAGE_SCRIPT])
-    print(f"{FIRST_STAGE_SCRIPT} started (PID: {first_stage.pid})")
-except FileNotFoundError:
-    print(f"Error: Could not find '{FIRST_STAGE_SCRIPT}'")
-    http_server.terminate()
-    sys.exit(1)
-
 print("\n--- Services running ---")
 print(f"  • HTTP server (scripts): port {HTTP_SERVER_PORT}")
 print(f"  • {SERVER_SCRIPT}: running")
-print(f"  • {FIRST_STAGE_SCRIPT}: running locally")
 print("Press Ctrl+C to shut down.")
 
 try:
-    # Wait for first_stage.py to complete
-    first_stage.wait()
-    print(f"{FIRST_STAGE_SCRIPT} completed.")
-    
-    # Keep the services running
-    print("Services are still running. Press Ctrl+C to shut down.")
+    # Keep the server running
     server.wait()
 except KeyboardInterrupt:
     print("\nShutting down...")
