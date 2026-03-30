@@ -1,6 +1,6 @@
 # Beach head
 
-This file describes how to build and run the beach head program for the CS564 Final Project, as well as extra notes on cases where it will run. 
+This file describes how to build and run the beach head program for the CS564 Final Project, as well as extra notes on cases where it will run. The goal of this program is given a url of an unencrypted binary, download that binary and run it. In the future, this beach head program could set up persistence for the program or even select which binary to deploy based on the target running this code.
 
 ## Build and Run
 To build and obtain the beachhead string:
