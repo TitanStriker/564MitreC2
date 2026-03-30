@@ -3,9 +3,9 @@ import sys
 import time
 
 # CONFIGURATION
-HTTP_SERVER_PORT = 443
+HTTP_SERVER_PORT = 80
 DOCKER_IMAGE_NAME = 'my-c2-server'
-DOCKER_SERVER_PORT = 80
+DOCKER_SERVER_PORT = 3000
 FIRST_STAGE_SCRIPT = 'first_stage.py'
 BEACHHEAD_DIR = 'beachhead'
 

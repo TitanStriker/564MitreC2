@@ -10,6 +10,6 @@ To run this code:
 python3 trigger.py
 ```
 
-This script runs all stages of our pipeline, including building and hosting the compiled files.  
+This script runs all stages of our pipeline, including building and hosting the compiled files as well as launching the C2 and exfil servers.  
 
 ## Threat-Model Diagram
