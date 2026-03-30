@@ -1,5 +1,5 @@
 # Change this to your url
-URL ?= "Default Url Here"
+URL ?= "http://10.37.1.249/implant.py"
 
 # Compiler and flags for c++
 CXX = g++
