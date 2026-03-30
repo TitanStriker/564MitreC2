@@ -1,16 +1,27 @@
 # https://www.geeksforgeeks.org/python/socket-programming-python/
 import socket             
 import random          
-import pwn  
+# import pwn  
 import base64 
 
-s = socket.socket()         
+s = socket.socket()     
+    
+def fixed_xor(arg1: bytes, arg2: bytes) -> bytes:
+    assert len(arg1) == len(arg2), "Trying to xor mismatched lengths!"
+    return bytes([arg1[i] ^ arg2[i] for i in range(len(arg1))])
+  
+def xor(message: bytes, key: bytes) -> bytes:
+    assert len(message) >= len(key)
+    ret = []
+    for i in range(len(message)):
+        ret.append(message[i] ^ key[i % len(key)])
+    return bytes(ret)
 
 def enc(plaintext):
-  return base64.encodebytes(pwn.xor(plaintext, key))
+  return base64.encodebytes(xor(plaintext, key))
 
 def dec(ciphertext):
-  return pwn.xor(base64.decodebytes(ciphertext), key)
+  return xor(base64.decodebytes(ciphertext), key)
 
 port = 8080
 key = b"ED IS COOL"
