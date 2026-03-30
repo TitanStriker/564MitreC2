@@ -5,6 +5,11 @@ This project demonstrates how a full cyber-effect pipeline can be built against 
 '.%2e/', more commonly seen as  ../, which navigates to a parent directory. Our project uses the exploit to download and run a beach head. This beach head in turn downloads, installs, and runs the C2 implant. Data exfiltration will be added for a later milestone.
 
 ## Build/Run Instructions
+To run this code:
+```bash
+python3 trigger.py
+```
 
+This script runs all stages of our pipeline, including building and hosting the compiled files.  
 
 ## Threat-Model Diagram
