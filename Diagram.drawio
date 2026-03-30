@@ -1,0 +1,55 @@
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36" version="29.6.6">
+  <diagram name="Page-1" id="HA3lAnwY5DxwPjvaHlv5">
+    <mxGraphModel dx="670" dy="816" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="jG5I4qbIn7L4utIpuOgz-1" parent="1" style="whiteSpace=wrap;html=1;aspect=fixed;" value="" vertex="1">
+          <mxGeometry height="80" width="80" x="210" y="260" as="geometry" />
+        </mxCell>
+        <mxCell id="jG5I4qbIn7L4utIpuOgz-2" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=16;" value="Proxmox" vertex="1">
+          <mxGeometry height="30" width="60" x="220" y="285" as="geometry" />
+        </mxCell>
+        <mxCell id="jG5I4qbIn7L4utIpuOgz-4" parent="1" style="strokeWidth=2;html=1;shape=mxgraph.flowchart.annotation_2;align=left;labelPosition=right;pointerEvents=1;rotation=-90;" value="" vertex="1">
+          <mxGeometry height="215" width="50" x="225" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="jG5I4qbIn7L4utIpuOgz-5" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="60" width="120" x="70" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="jG5I4qbIn7L4utIpuOgz-7" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=16;" value="C2 Server" vertex="1">
+          <mxGeometry height="30" width="60" x="100" y="170" as="geometry" />
+        </mxCell>
+        <mxCell id="jG5I4qbIn7L4utIpuOgz-8" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="60" width="120" x="130" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="jG5I4qbIn7L4utIpuOgz-9" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=16;" value="Exfil Server" vertex="1">
+          <mxGeometry height="30" width="60" x="160" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="jG5I4qbIn7L4utIpuOgz-10" parent="1" style="rounded=0;whiteSpace=wrap;html=1;" value="" vertex="1">
+          <mxGeometry height="60" width="120" x="300" y="155" as="geometry" />
+        </mxCell>
+        <mxCell id="jG5I4qbIn7L4utIpuOgz-11" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=16;" value="target" vertex="1">
+          <mxGeometry height="30" width="60" x="330" y="155" as="geometry" />
+        </mxCell>
+        <mxCell id="jG5I4qbIn7L4utIpuOgz-12" edge="1" parent="1" style="curved=1;endArrow=classic;html=1;rounded=0;fontSize=12;startSize=8;endSize=8;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="jG5I4qbIn7L4utIpuOgz-8" value="">
+          <mxGeometry height="50" relative="1" width="50" as="geometry">
+            <Array as="points">
+              <mxPoint x="80" y="150" />
+              <mxPoint x="170" y="150" />
+              <mxPoint x="70" y="120" />
+              <mxPoint x="90" y="90" />
+            </Array>
+            <mxPoint x="120" y="150" as="sourcePoint" />
+            <mxPoint x="120" y="80" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jG5I4qbIn7L4utIpuOgz-13" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=16;" value="Docker" vertex="1">
+          <mxGeometry height="30" width="60" x="70" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="jG5I4qbIn7L4utIpuOgz-14" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=16;" value="Ubuntu 24.x&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;x&lt;/span&gt;" vertex="1">
+          <mxGeometry height="30" width="110" x="310" y="180" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
