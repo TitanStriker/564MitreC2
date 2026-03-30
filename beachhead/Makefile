@@ -1,5 +1,5 @@
 # Change this to your url
-URL = "Default Url Here"
+URL ?= "Default Url Here"
 
 # Compiler and flags for c++
 CXX = g++
