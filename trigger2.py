@@ -46,8 +46,19 @@ except FileNotFoundError:
     http_server.terminate()
     sys.exit(1)
 
-print("\n--- HTTP server still running ---")
+# Run server after first_stage completes
+print("\nRunning server.py...")
+try:
+    server_process = subprocess.Popen([sys.executable, 'server.py'])
+    print(f"server.py started (PID: {server_process.pid})")
+except FileNotFoundError:
+    print(f"Error: Could not find 'server.py'")
+    http_server.terminate()
+    sys.exit(1)
+
+print("\n--- HTTP server and server.py still running ---")
 print(f"  • HTTP server (implant): port {HTTP_SERVER_PORT}")
+print(f"  • server.py (PID: {server_process.pid})")
 print("Press Ctrl+C to shut down.")
 
 try:
@@ -56,4 +67,5 @@ try:
 except KeyboardInterrupt:
     print("\nShutting down...")
     http_server.terminate()
+    server_process.terminate()
     print("Clean exit.")
