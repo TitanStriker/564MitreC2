@@ -1,6 +1,6 @@
-<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36" version="29.6.6">
+<mxfile host="app.diagrams.net" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36">
   <diagram name="Page-1" id="HA3lAnwY5DxwPjvaHlv5">
-    <mxGraphModel dx="670" dy="816" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="2316" dy="1249" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -49,6 +49,11 @@
         <mxCell id="jG5I4qbIn7L4utIpuOgz-14" parent="1" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;rounded=0;fontSize=16;" value="Ubuntu 24.x&lt;span style=&quot;background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;x&lt;/span&gt;" vertex="1">
           <mxGeometry height="30" width="110" x="310" y="180" as="geometry" />
         </mxCell>
+        <UserObject label="&lt;img src=&quot;https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Ubuntu-logo-no-wordmark-solid-o-2022.svg/3840px-Ubuntu-logo-no-wordmark-solid-o-2022.svg.png&quot; alt=&quot;File:Ubuntu-logo-no-wordmark-solid-o-2022.svg - Wikimedia Commons&quot;&gt;" link="&lt;img src=&quot;https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/Ubuntu-logo-no-wordmark-solid-o-2022.svg/3840px-Ubuntu-logo-no-wordmark-solid-o-2022.svg.png&quot; alt=&quot;File:Ubuntu-logo-no-wordmark-solid-o-2022.svg - Wikimedia Commons&quot;&gt;" id="2gFaghVmV8T5Th4rCsUO-2">
+          <mxCell parent="1" style="text;whiteSpace=wrap;html=1;" vertex="1">
+            <mxGeometry height="40" width="30" x="194" y="440" as="geometry" />
+          </mxCell>
+        </UserObject>
       </root>
     </mxGraphModel>
   </diagram>

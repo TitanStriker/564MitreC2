@@ -54,6 +54,6 @@ cat /usr/local/apache2/logs/error_log
 ```
 
 Images:
-![[Pasted image 20260319215216.png]]
-![[Pasted image 20260319223921.png]]
+![Pasted image 20260319215216.png](images/Pasted%20image%2020260319215216.png)
+![Pasted image 20260319223921.png](images/Pasted%20image%2020260319223921.png)
 
