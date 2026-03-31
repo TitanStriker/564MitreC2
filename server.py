@@ -23,7 +23,7 @@ def enc(plaintext):
 def dec(ciphertext):
   return xor(base64.decodebytes(ciphertext), key)
 
-port = 8080
+port = 8888
 key = b"ED IS COOL"
 s.connect(('10.37.1.248', port)) 
 
