@@ -19,7 +19,7 @@ def xor(message: bytes, key: bytes) -> bytes:
 s = socket.socket()         
 print ("Socket successfully created")
 
-port = 8080
+port = 8888
 key = b"ED IS COOL"
 
 def enc(plaintext):

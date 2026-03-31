@@ -33,7 +33,7 @@ def prepare_local_payload():
 
 def deploy():
     if not prepare_local_payload():
-        return
+        return 
 
     print(f"[*] Executing One-Shot Deployment to {target_ip}...")
     

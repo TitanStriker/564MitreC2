@@ -45,3 +45,15 @@ except FileNotFoundError:
     print(f"Error: Could not find '{FIRST_STAGE_SCRIPT}'")
     http_server.terminate()
     sys.exit(1)
+
+print("\n--- HTTP server still running ---")
+print(f"  • HTTP server (implant): port {HTTP_SERVER_PORT}")
+print("Press Ctrl+C to shut down.")
+
+try:
+    # Keep the HTTP server running so beachhead can download implant.py
+    http_server.wait()
+except KeyboardInterrupt:
+    print("\nShutting down...")
+    http_server.terminate()
+    print("Clean exit.")
