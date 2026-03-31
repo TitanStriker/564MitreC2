@@ -7,7 +7,7 @@ This project demonstrates how a full cyber-effect pipeline can be built against 
 ## Build/Run Instructions
 To run this code:
 ```bash
-python3 trigger.py
+sudo python3 trigger.py
 ```
 
 This script runs all stages of our pipeline, including building and hosting the compiled files as well as launching the C2 and exfil servers.  
