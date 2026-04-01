@@ -16,3 +16,5 @@ sudo python3 trigger.py
 This script runs all stages of our pipeline, including building and hosting the compiled files as well as launching the C2 server.  
 
 ## Threat-Model Diagram
+
+![./docs/images/Diagram.drawio.png](./docs/images/Diagram.drawio.png)
