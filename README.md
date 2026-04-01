@@ -2,7 +2,7 @@
 
 ## Project Overview
 This project demonstrates how a full cyber-effect pipeline can be built against an Apache server vulnerable to CVE-2021-41773. This CVE allows for path traversal and RCE on an Apache server if cgi-bin scripts are enabled on the server. The vulnerability stems from failing to sanitize 
-'.%2e/', more commonly seen as  ../, which navigates to a parent directory. Our project uses the exploit to download and run a beach head. This beach head in turn downloads, installs, and runs the C2 implant. All communication is currently XOR encrypted, which serves as an obfuscation method more than offering any level of security. Data exfiltration will be added for a later milestone.
+'.%2e/', more commonly seen as  ../, which navigates to a parent directory. Our project uses the exploit to download and run a beach head. This beach head in turn downloads, installs, and runs the C2 implant. All communication is currently XOR encrypted, which serves as an obfuscation method more than offering any level of security. More robust cryptography and data exfiltration will be added for a later milestone.
 
 ## Target Setup Instructions
 Refer to `./docs/env-setup-apache2_4_49.md` for how to set up the vulnerable target VM.
