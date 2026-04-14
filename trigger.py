@@ -46,22 +46,9 @@ except FileNotFoundError:
     http_server.terminate()
     sys.exit(1)
 
-# Start C2 server as background process after first_stage completes
-print("\nStarting C2 server...")
-try:
-    c2_server_process = subprocess.Popen([sys.executable, 'server.py'])
-    print(f"C2 server started (PID: {c2_server_process.pid})")
-except FileNotFoundError:
-    print(f"Error: Could not find 'server.py'")
-    http_server.terminate()
-    sys.exit(1)
-
-time.sleep(2)
-
-# Run client server.py in foreground so user can type commands
-print("\n--- Starting C2 client interface ---")
-print(f"  • HTTP server (implant): port {HTTP_SERVER_PORT}")
-print(f"  • C2 server (backend): PID {c2_server_process.pid}")
+# Run C2 client (server.py)
+print("\n--- Starting C2 interface ---")
+print(f"  • HTTP server (implant/stager): port {HTTP_SERVER_PORT}")
 print("\nYou can now type commands below:\n")
 
 try:
@@ -75,5 +62,4 @@ except subprocess.CalledProcessError as e:
 
 print("\nShutting down...")
 http_server.terminate()
-c2_server_process.terminate()
 print("Clean exit.")

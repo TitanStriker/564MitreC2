@@ -9,11 +9,18 @@ def fixed_xor(arg1: bytes, arg2: bytes) -> bytes:
     return bytes([arg1[i] ^ arg2[i] for i in range(len(arg1))])
   
 def xor(message: bytes, key: bytes) -> bytes:
-    assert len(message) >= len(key)
-    ret = []
-    for i in range(len(message)):
-        ret.append(message[i] ^ key[i % len(key)])
-    return bytes(ret)
+  """XOR a message with a repeating key.
+
+  Works for messages of any length, including empty messages, without
+  asserting on the length. This avoids crashes when the socket returns
+  zero bytes (peer closed the connection).
+  """
+  if not message:
+    return b""
+  ret = []
+  for i in range(len(message)):
+    ret.append(message[i] ^ key[i % len(key)])
+  return bytes(ret)
 
 
 s = socket.socket()         
@@ -38,9 +45,27 @@ c, addr = s.accept()
 print ('Got connection from', addr )
 
 while True:
-  s = dec(c.recv(1600)).decode()
-  print(s)
-  req_type, id, data = s.split('  ')
+  # Receive an encrypted request from the controller.
+  ciphertext = c.recv(1600)
+  if not ciphertext:
+    print("[!] Controller disconnected")
+    break
+
+  try:
+    message = dec(ciphertext).decode()
+  except Exception as e:
+    print(f"[!] Error decrypting incoming data: {e}")
+    break
+
+  print(message)
+
+  # Expect exactly three fields separated by double spaces: TYPE, id, data
+  parts = message.split('  ')
+  if len(parts) != 3:
+    print(f"[!] Malformed request: {message!r}")
+    break
+
+  req_type, id, data = parts
   print(req_type)
   
   if req_type == 'HELO':
