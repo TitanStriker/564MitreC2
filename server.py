@@ -5,7 +5,7 @@ import threading
 # import pwn  
 import base64 
 
-host = '10.37.1.248'
+host = '0.0.0.0' # Open to anyone on the same wifi
 port = 8888
 
 key = b"ED IS COOL"
