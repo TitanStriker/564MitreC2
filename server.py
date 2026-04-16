@@ -55,11 +55,11 @@ def receiveMessage(c):
            print("Disconnected")
            break
 
-        try:
-            response = dec(ciphertext).decode().replace('\\n', '\n')
-        except Exception as e:
-            print(f"[!] Error decoding response: {e}")
-            break
+       try:
+           response = dec(ciphertext).decode().replace('\\n', '\n')
+       except Exception as e:
+           print(f"[!] Error decoding response: {e}")
+           break
 
        print(f"Received message: {response}")
 
