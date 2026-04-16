@@ -1,38 +1,12 @@
 # https://www.geeksforgeeks.org/python/socket-programming-python/
 import socket             
 import random      
-import threading    
-# import pwn  
-import base64 
+import threading 
 
 host = '0.0.0.0' # Open to anyone on the same wifi
 port = 8888
 
-key = b"ED IS COOL"
-    
-def fixed_xor(arg1: bytes, arg2: bytes) -> bytes:
-    assert len(arg1) == len(arg2), "Trying to xor mismatched lengths!"
-    return bytes([arg1[i] ^ arg2[i] for i in range(len(arg1))])
-  
-def xor(message: bytes, key: bytes) -> bytes:
-    """XOR a message with a repeating key.
 
-    Works for messages of any length, including empty messages, without
-    asserting on the length. This avoids crashes when the socket returns
-    zero bytes (peer closed the connection).
-    """
-    if not message:
-        return b""
-    ret = []
-    for i in range(len(message)):
-        ret.append(message[i] ^ key[i % len(key)])
-    return bytes(ret)
-
-def enc(plaintext):
-  return base64.encodebytes(xor(plaintext, key))
-
-def dec(ciphertext):
-  return xor(base64.decodebytes(ciphertext), key)
 
 types = ['HELO', 'EXIT', 'READ', 'RITE', 'CMD', 'ERR']
 
@@ -46,7 +20,7 @@ def parseAndSendInput(s: socket.socket, user_input):
         assert(data != '')
     else:
         assert(data == '')
-    s.send(enc(("  ".join([type, id, data])).encode()))
+    s.send(("  ".join([type, id, data])).encode())
 
 def receiveMessage(c):
    while True:
@@ -56,7 +30,7 @@ def receiveMessage(c):
            break
 
        try:
-           response = dec(ciphertext).decode().replace('\\n', '\n')
+           response = data.decode().replace('\\n', '\n')
        except Exception as e:
            print(f"[!] Error decoding response: {e}")
            break
@@ -76,6 +50,6 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
    with c:
        print(f"Connected to {a}")
        while True:
-           parseAndSendInput(s, input('> '))
+           parseAndSendInput(c, input('> '))
 
 s.close()
