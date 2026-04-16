@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
+/*
 static const std::string B64_CHARS =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
@@ -46,17 +47,22 @@ std::string base64_decode(const std::string& input) {
     }
     return out;
 }
+*/
 
 void handleMessage(const std::string& msg, int sock) {
     std::istringstream iss(msg);
-    std::string keyword;
-    iss >> keyword;
+    std::string keyword, id;
+    if(!(iss >> keyword) || !(iss >> id)) {
+        // Failure state
+        break;
+    }
 
     if(keyword == "HELO") {
-        std::string s = "HELLO";
+        std::string s = std::string("HELLO  ") + id;
         send(sock, s.c_str(), s.size(), 0);
     } else if(keyword == "EXIT") {
         // throw
+        throw 1;
     } else if(keyword == "READ") {
 
     } else if(keyword == "RITE") {
@@ -69,7 +75,6 @@ void handleMessage(const std::string& msg, int sock) {
 }
 
 int main(int argc, char* argv[]) {
-
     int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     if(clientSocket < 0) {
         return 1;
@@ -96,7 +101,7 @@ int main(int argc, char* argv[]) {
 
         std::string message(buf);
         try {
-            handleMessage(base64_decode(message), clientSocket);
+            handleMessage(message, clientSocket);
         } catch (...) {
             break;
         }
