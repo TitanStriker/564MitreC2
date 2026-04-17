@@ -39,27 +39,42 @@ try:
     print(f"{FIRST_STAGE_SCRIPT} completed successfully")
 except subprocess.CalledProcessError as e:
     print(f"Error running {FIRST_STAGE_SCRIPT}: {e}")
-    http_server.terminate()
     sys.exit(1)
 except FileNotFoundError:
     print(f"Error: Could not find '{FIRST_STAGE_SCRIPT}'")
-    http_server.terminate()
     sys.exit(1)
 
-# Run C2 client (server.py)
-print("\n--- Starting C2 interface ---")
-print(f"  • HTTP server (implant/stager): port {HTTP_SERVER_PORT}")
-print("\nYou can now type commands below:\n")
-
+# Start C2 and exfil servers using docker-compose
+print("\n--- Starting C2 and exfil servers with docker-compose ---")
 try:
-    subprocess.run([sys.executable, 'server.py'], check=True)
-except KeyboardInterrupt:
-    pass
-except FileNotFoundError:
-    print(f"Error: Could not find 'server.py'")
-except subprocess.CalledProcessError as e:
-    print(f"Error running server.py: {e}")
+    # Start services in detached mode
+    subprocess.run(['docker-compose', 'up', '--build', '-d'], check=True)
+    print("C2 and exfil servers are starting...")
+    time.sleep(5) # Give some time for containers to be up and running
 
-print("\nShutting down...")
-http_server.terminate()
-print("Clean exit.")
+    # Find the container ID for the c2-server
+    result = subprocess.run(['docker-compose', 'ps', '-q', 'c2-server'], capture_output=True, text=True, check=True)
+    c2_container_id = result.stdout.strip()
+
+    if not c2_container_id:
+        print("Error: Could not find the c2-server container.")
+        subprocess.run(['docker-compose', 'down'])
+        sys.exit(1)
+
+    print(f"\n--- Attaching to C2 server ({c2_container_id}) ---")
+    print("You can now type commands below.")
+    print("To detach from the container, press Ctrl+P, then Ctrl+Q.")
+    
+    # Attach to the c2-server container for interactive commands
+    subprocess.run(['docker', 'attach', c2_container_id])
+
+except subprocess.CalledProcessError as e:
+    print(f"Error with docker-compose: {e}")
+except FileNotFoundError:
+    print("Error: 'docker-compose' or 'docker' command not found. Please ensure Docker is installed and in your PATH.")
+except KeyboardInterrupt:
+    print("\nDetaching from C2 server...")
+finally:
+    print("\nShutting down servers...")
+    subprocess.run(['docker-compose', 'down'])
+    print("Clean exit.")
