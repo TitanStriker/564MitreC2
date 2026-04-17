@@ -5,6 +5,8 @@ services:
       dockerfile: c2.Dockerfile
     ports:
       - "8888:8888"
+    stdin_open: true # Keep stdin open for interactive commands
+    tty: true        # Allocate a pseudo-TTY
     networks:
       - c2_network
 
