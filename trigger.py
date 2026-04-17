@@ -44,6 +44,9 @@ except FileNotFoundError:
     print(f"Error: Could not find '{FIRST_STAGE_SCRIPT}'")
     sys.exit(1)
 
+# Ensure c2_outputs.txt exists before starting docker-compose
+open('c2_outputs.txt', 'a').close()
+
 # Start C2 and exfil servers using docker-compose
 print("\n--- Starting C2 and exfil servers with docker-compose ---")
 try:
