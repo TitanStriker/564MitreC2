@@ -53,14 +53,20 @@ try:
     # Start services in detached mode
     subprocess.run(['docker-compose', 'up', '--build', '-d'], check=True)
     print("C2 and exfil servers are starting...")
-    time.sleep(5) # Give some time for containers to be up and running
+    time.sleep(10) # Give some time for containers to be up and running
+
+    # Check the status of the containers
+    print("\n--- Checking container status ---")
+    subprocess.run(['docker-compose', 'ps'])
 
     # Find the container ID for the c2-server
-    result = subprocess.run(['docker-compose', 'ps', '-q', 'c2-server'], capture_output=True, text=True, check=True)
+    result = subprocess.run(['docker-compose', 'ps', '-q', 'c2-server'], capture_output=True, text=True)
     c2_container_id = result.stdout.strip()
 
     if not c2_container_id:
-        print("Error: Could not find the c2-server container.")
+        print("\nError: Could not find the c2-server container.")
+        print("--- Displaying docker-compose logs for debugging ---")
+        subprocess.run(['docker-compose', 'logs'])
         subprocess.run(['docker-compose', 'down'])
         sys.exit(1)
 
