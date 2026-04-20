@@ -6,12 +6,18 @@ CXX = g++
 CXXFLAGS = -O2 -s -DURL='$(URL)'
 
 TARGET = beachhead
-SRC = beachhead.cpp 
+SRCS = beachhead.cpp privesc_check.cpp
+OBJS = $(SRCS:.cpp=.o)
 
 all: $(TARGET)
 
-$(TARGET): $(SRC)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS)
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(OBJS)
+
+.PHONY: all clean
