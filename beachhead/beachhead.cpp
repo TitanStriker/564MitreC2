@@ -41,7 +41,6 @@ int main() {
     
     // Log findings (debug mode only)
     #ifdef DEBUG
-    char msg_buf[256];
     const char* writable_str = privesc_check.backups_dir_writable ? "YES" : "NO";
     const char* tar_str = privesc_check.tar_available ? "YES" : "NO";
     const char* cron_str = privesc_check.cron_running ? "YES" : "NO";
