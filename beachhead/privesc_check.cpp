@@ -17,7 +17,7 @@
 #include <sys/syscall.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <linux/dirent.h>
+#include <dirent.h>
 #include <cstring>
 
 // ============================================================================
