@@ -9,4 +9,4 @@ COPY exfil_key.pem .
 
 RUN touch /app/c2_outputs.txt
 
-CMD ["sh", "-c", "openssl s_server -accept 443 -cert exfil_cert.pem -key exfil_key.pem >> /app/c2_outputs.txt"]
+CMD ["sh", "-c", "openssl s_server -accept 443 -cert exfil_cert.pem -key exfil_key.pem -quiet >> /app/c2_outputs.txt"]

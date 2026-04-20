@@ -38,6 +38,16 @@ except FileNotFoundError:
 
 time.sleep(1)
 
+# move implant to main directory for hosting
+implant_source = os.path.join(IMPLANT_DIR, 'implant')
+implant_destination = os.path.join('.', 'implant')
+try:
+    shutil.copy(implant_source, implant_destination)
+    print(f"Copied implant from {implant_source} to {implant_destination}")
+except Exception as e:
+    print(f"Error copying implant: {e}")
+    sys.exit(1)
+
 # Start the HTTP server
 print(f"Starting HTTP server on port {HTTP_SERVER_PORT}...")
 http_server = None
@@ -50,18 +60,6 @@ except Exception as e:
 
 try:
     time.sleep(1)
-
-    # Run first stage script
-    print(f"Running {FIRST_STAGE_SCRIPT}...")
-    try:
-        first_stage = subprocess.run([sys.executable, FIRST_STAGE_SCRIPT], check=True)
-        print(f"{FIRST_STAGE_SCRIPT} completed successfully")
-    except subprocess.CalledProcessError as e:
-        print(f"Error running {FIRST_STAGE_SCRIPT}: {e}")
-        sys.exit(1)
-    except FileNotFoundError:
-        print(f"Error: Could not find '{FIRST_STAGE_SCRIPT}'")
-        sys.exit(1)
 
     # Ensure c2_outputs.txt exists as a file before starting docker-compose
     output_file = 'c2_outputs.txt'
@@ -93,6 +91,18 @@ try:
             print("--- Displaying docker-compose logs for debugging ---")
             subprocess.run(['docker-compose', 'logs'])
             sys.exit(1) # Exit, which will trigger the outer finally block
+
+        # Run first stage script
+        print(f"Running {FIRST_STAGE_SCRIPT}...")
+        try:
+            first_stage = subprocess.run([sys.executable, FIRST_STAGE_SCRIPT], check=True)
+            print(f"{FIRST_STAGE_SCRIPT} completed successfully")
+        except subprocess.CalledProcessError as e:
+            print(f"Error running {FIRST_STAGE_SCRIPT}: {e}")
+            sys.exit(1)
+        except FileNotFoundError:
+            print(f"Error: Could not find '{FIRST_STAGE_SCRIPT}'")
+            sys.exit(1)
 
         print(f"\n--- Attaching to C2 server ({c2_container_id}) ---")
         print("You can now type commands below.")
