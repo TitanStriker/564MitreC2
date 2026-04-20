@@ -8,6 +8,7 @@ import os
 HTTP_SERVER_PORT = 80
 FIRST_STAGE_SCRIPT = 'first_stage.py'
 BEACHHEAD_DIR = 'beachhead'
+IMPLANT_DIR = 'c2Implant'
 
 # Compile beachhead
 print(f"Compiling {BEACHHEAD_DIR}...")
@@ -16,6 +17,20 @@ try:
     print(f"{BEACHHEAD_DIR} compiled successfully")
 except subprocess.CalledProcessError as e:
     print(f"Error compiling {BEACHHEAD_DIR}: {e}")
+    sys.exit(1)
+except FileNotFoundError:
+    print(f"Error: 'make' command not found")
+    sys.exit(1)
+
+time.sleep(1)
+
+# Compile implant
+print(f"Compiling {IMPLANT_DIR}...")
+try:
+    subprocess.run(['make'], cwd=IMPLANT_DIR, check=True)
+    print(f"{IMPLANT_DIR} compiled successfully")
+except subprocess.CalledProcessError as e:
+    print(f"Error compiling {IMPLANT_DIR}: {e}")
     sys.exit(1)
 except FileNotFoundError:
     print(f"Error: 'make' command not found")
