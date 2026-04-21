@@ -1,0 +1,26 @@
+services:
+  c2-server:
+    build:
+      context: .
+      dockerfile: c2.Dockerfile
+    ports:
+      - "8888:8888"
+    stdin_open: true # Keep stdin open for interactive commands
+    tty: true        # Allocate a pseudo-TTY
+    networks:
+      - c2_network
+
+  exfil-server:
+    build:
+      context: .
+      dockerfile: exfil.Dockerfile
+    ports:
+      - "443:443"
+    volumes:
+      - ./c2_outputs.txt:/app/c2_outputs.txt
+    networks:
+      - c2_network
+
+networks:
+  c2_network:
+    driver: bridge
