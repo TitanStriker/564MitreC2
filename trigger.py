@@ -125,9 +125,9 @@ try:
         print("Error: 'docker-compose' or 'docker' command not found. Please ensure Docker is installed and in your PATH.")
     except KeyboardInterrupt:
         print("\nDetaching from C2 server...")
-    finally:
-        print("\nShutting down docker-compose services...")
-        subprocess.run(['docker-compose', 'down'])
+    # finally:
+    #     print("\nShutting down docker-compose services...")
+    #     subprocess.run(['docker-compose', 'down'])
 
 finally:
     if http_server:
