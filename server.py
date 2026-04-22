@@ -7,7 +7,7 @@ import threading
 host = '0.0.0.0'  # Open to anyone on the same wifi
 port = 8888
 
-types = ['HELO', 'EXIT', 'READ', 'RITE', 'CMD', 'ERR']
+types = ['HELO', 'EXIT', 'READ', 'RITE', 'CMD', 'ERR', 'RECON']
 
 def parseAndSendInput(s: ssl.SSLSocket, user_input):
     user_input = user_input.split(' ')
