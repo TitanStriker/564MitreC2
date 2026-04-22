@@ -109,6 +109,9 @@ try:
             print(f"Error: Could not find '{FIRST_STAGE_SCRIPT}'")
             sys.exit(1)
 
+        print("\n--- Waiting for implant to connect... ---")
+        time.sleep(5) # Give implant time to connect
+
         print(f"\n--- Attaching to C2 server ({c2_container_id}) ---")
         print("You can now type commands below.")
         print("To detach from the container, press Ctrl+P, then Ctrl+Q.")
