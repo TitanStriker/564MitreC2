@@ -23,4 +23,4 @@ In order to deploy the implant on a target machine, the exploit chain must be in
 
 ## Threat-Model Diagram
 
-![./docs/images/Diagram.png](./docs/images/Diagram.drawio.png)
+![./docs/images/Diagram.png](./docs/images/Diagram.png)
