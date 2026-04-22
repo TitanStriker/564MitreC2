@@ -1,0 +1,29 @@
+# IP addresses WITHOUT quotes
+C2_IP ?= 10.37.1.249
+C2_PORT ?= 8888
+EXFIL_IP ?= 10.37.1.249
+EXFIL_PORT ?= 8889
+
+CXX = g++
+CXXFLAGS = -O2 -s -Wall \
+           -DC2_IP='"$(C2_IP)"' -DC2_PORT=$(C2_PORT) \
+           -DEXFIL_IP='"$(EXFIL_IP)"' -DEXFIL_PORT=$(EXFIL_PORT)
+LDFLAGS = -lssl -lcrypto -lpthread
+
+TARGET = implant
+SRCS = implant.cpp
+OBJS = $(SRCS:.cpp=.o)
+
+all: $(TARGET)
+
+$(TARGET): $(OBJS)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(OBJS) $(LDFLAGS)
+	strip --strip-all $(TARGET)
+
+%.o: %.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+clean:
+	rm -f $(TARGET) $(OBJS)
+
+.PHONY: all clean
