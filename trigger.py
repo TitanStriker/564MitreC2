@@ -6,9 +6,14 @@ import os
 
 # CONFIGURATION
 HTTP_SERVER_PORT = 80
+PUB_KEY = "cert.pem"
+PRIV_KEY = "key.pem"
 FIRST_STAGE_SCRIPT = 'first_stage.py'
 BEACHHEAD_DIR = 'beachhead'
 IMPLANT_DIR = 'c2Implant'
+
+# Need to copy both .pem files onto both docker containers, PUB_KEY to target
+os.system(f"openssl req -x509 -newkey rsa:4096 -keyout {PRIV_KEY} -out {PUB_KEY} -days 365 -nodes -subj \"/C=US/ST=State/L=City/O=Company/OU=IT/CN=example.com\"")
 
 # Compile beachhead
 print(f"Compiling {BEACHHEAD_DIR}...")
