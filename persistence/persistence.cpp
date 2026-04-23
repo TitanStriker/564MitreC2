@@ -25,7 +25,7 @@ int main() {
 "Type=simple\n"
 "ExecStart=" << execPath << "\n"
 "Restart=always\n"
-"User=nobody\n\n"
+"User=root\n\n"
 "[Install]\n"
 "WantedBy=multi-user.target\n";
 
