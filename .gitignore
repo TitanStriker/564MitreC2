@@ -1,0 +1,6 @@
+beachhead/beachhead
+beachhead/*.o
+c2_outputs.txt
+exfil_logs/
+*.pem
+implant
