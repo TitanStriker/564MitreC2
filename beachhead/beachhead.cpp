@@ -26,6 +26,11 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
+// Networking (needed for TLS exfiltration)
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 // Modules
 #include "privesc_check.h"
 #include "privesc.h"
