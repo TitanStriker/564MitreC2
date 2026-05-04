@@ -6,6 +6,7 @@
 struct DetectionResult {
     bool is_docker;
     bool is_privileged;
+    bool can_escape;
     std::string details;
 };
 
