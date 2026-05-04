@@ -24,6 +24,7 @@ def parseAndSendInput(user_input):
             idx = 0
             for e in addresses:
                 print(f"\t[{idx}]: {addr}", idx, addresses[0])
+                idx += 1
             return
 
         if type is 'help':
