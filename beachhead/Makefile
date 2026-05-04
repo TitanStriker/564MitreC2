@@ -1,6 +1,5 @@
-
-URL ?= "http://10.37.1.249/implant"
-CERT_URL = "http://10.37.1.249/cert.pem"
+URL ?= http://10.37.1.249/implant
+CERT_URL = http://10.37.1.249/cert.pem
 
 CXX = g++
 CXXFLAGS = -O2 -s \
