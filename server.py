@@ -12,42 +12,47 @@ types = ['HELO', 'EXIT', 'READ', 'RITE', 'CMD', 'ERR', 'RECON']
 lock = threading.Lock()
 addresses = [ ]
 
-def parseAndSendInput(user_input):
-    user_input = user_input.split(' ')
+def parseAndSendInput():
+    while True:
+        user_input = input('> ')
 
-    try:
-        type = user_input[0]
+        user_input = user_input.split(' ')
 
-        # handle server exclusive commands
-        if type is 'listconns':
-            print("List of connections:\n")
-            idx = 0
-            for e in addresses:
-                print(f"\t[{idx}]: {addr}", idx, addresses[0])
-                idx += 1
-            return
+        try:
+            type = user_input[0]
 
-        if type is 'help':
-            print("Usage: [server command] [connection id] [params...]"
-                  "Server local commands: \'help\', \'listconns\' "
-                  "Client affecting commands: \'HELO\', \'EXIT\', \'READ\', \'RITE\', \'CMD\', \'ERR\', \'RECON\'")
-            return
+            # handle server exclusive commands
+            if type is 'listconns':
+                print("List of connections:\n")
+                idx = 0
+                for e in addresses:
+                    print(f"\t[{idx}]: {addr}", idx, addresses[0])
+                    idx += 1
+                return
 
-        id = str(random.randint(0, 10 ** 9))
-        addressIdx = user_input[1]
-        connection = addresses[int(addressIdx)][1]
+            if type is 'help':
+                print("Usage: [server command] [connection id] [params...]"
+                      "Server local commands: \'help\', \'listconns\' "
+                      "Client affecting commands: \'HELO\', \'EXIT\', \'READ\', \'RITE\', \'CMD\', \'ERR\', \'RECON\'")
+                return
 
-        # handle server -> client commands
-        data = " ".join(user_input[2:])
-        assert type in types, f"unknown type {type} of length {len(type)}"
-        if type in ['READ', 'RITE', 'CMD']:
-            assert(data != '')
-        else:
-            assert(data == '')
+            id = str(random.randint(0, 10 ** 9))
+            addressIdx = user_input[1]
+            connection = addresses[int(addressIdx)][1]
 
-        connection.send(("  ".join([type, id, data])).encode())
-    except:
-        print("Something went wrong. Type 'help' for details on usage.")
+            # handle server -> client commands
+            data = " ".join(user_input[2:])
+            assert type in types, f"unknown type {type} of length {len(type)}"
+            if type in ['READ', 'RITE', 'CMD']:
+                assert(data != '')
+            else:
+                assert(data == '')
+
+            connection.send(("  ".join([type, id, data])).encode())
+        except:
+            print("Something went wrong. Type 'help' for details on usage.")
+
+    
 
 def receiveMessage(c: ssl.SSLSocket):
     while True:
@@ -78,7 +83,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as raw_socket:
     with ssl_context.wrap_socket(raw_socket, server_side=True) as s:
 
         # While true, accept new connections and register them 
-        threading.Thread(target=parseAndSendInput, args=(input('> ')), daemon=True).start()
+        threading.Thread(target=parseAndSendInput, args=(), daemon=True).start()
         while True:
             c, a = s.accept()
 
