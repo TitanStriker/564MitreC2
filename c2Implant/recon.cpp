@@ -5,7 +5,7 @@
 #include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <net/if.h>
-#include <linux/dirent.h>
+#include <dirent.h>        // replaced <linux/dirent.h> for portability
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <cstring>
