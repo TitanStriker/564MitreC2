@@ -5,7 +5,7 @@
 
 struct DetectionResult {
     bool is_docker;
-    bool is_vm;
+    bool is_privileged;
     std::string details;
 };
 

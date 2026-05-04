@@ -21,77 +21,71 @@ static std::string read_file(const std::string& path) {
 }
 
 static bool check_docker() {
-    // 1. Check for .dockerenv file
     if (file_exists("/.dockerenv")) return true;
 
-    // 2. Check /proc/1/cgroup
-    std::string cgroup = read_file("/proc/1/cgroup");
-    if (cgroup.find("docker") != std::string::npos || 
-        cgroup.find("kubepods") != std::string::npos) return true;
+    const char* cgroup_paths[] = {"/proc/self/cgroup", "/proc/1/cgroup"};
+    for (const char* path : cgroup_paths) {
+        std::string cgroup = read_file(path);
+        if (cgroup.find("docker") != std::string::npos || 
+            cgroup.find("kubepods") != std::string::npos ||
+            cgroup.find("containerd") != std::string::npos) return true;
+    }
 
-    // 3. Check /proc/self/mountinfo
     std::string mountinfo = read_file("/proc/self/mountinfo");
     if (mountinfo.find("docker") != std::string::npos) return true;
 
     return false;
 }
 
-static std::string detect_vm_vendor() {
-    std::string details = "";
+static bool check_privileged(std::string& details) {
+    bool privileged = false;
 
-    // 1. Check CPUID hypervisor bit and vendor string
-    #if defined(__x86_64__) || defined(__i386__)
-    unsigned int eax, ebx, ecx, edx;
-    eax = 1;
-    __asm__ __volatile__("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx) : "a"(eax));
-    if (ecx & (1u << 31)) {
-        eax = 0x40000000;
-        __asm__ __volatile__("cpuid" : "=a"(eax), "=b"(ebx), "=c"(ecx), "=d"(edx) : "a"(eax));
-        char vendor[13];
-        *((unsigned int*)&vendor[0]) = ebx;
-        *((unsigned int*)&vendor[4]) = ecx;
-        *((unsigned int*)&vendor[8]) = edx;
-        vendor[12] = '\0';
-        details += "Hypervisor detected via CPUID: ";
-        details += vendor;
-        details += ". ";
+    // 1. Check for sensitive device nodes (like /dev/sda)
+    // In a normal container, block devices are typically missing.
+    if (file_exists("/dev/sda") || file_exists("/dev/vda") || file_exists("/dev/nvme0n1")) {
+        privileged = true;
+        details += "[!] Sensitive device nodes found in /dev (Potential Privileged Mode). ";
     }
-    #endif
 
-    // 2. Check DMI product name
-    std::string product_name = read_file("/sys/class/dmi/id/product_name");
-    std::transform(product_name.begin(), product_name.end(), product_name.begin(), ::tolower);
-    if (!product_name.empty()) {
-        if (product_name.find("vmware") != std::string::npos ||
-            product_name.find("virtualbox") != std::string::npos ||
-            product_name.find("qemu") != std::string::npos ||
-            product_name.find("kvm") != std::string::npos ||
-            product_name.find("xen") != std::string::npos) {
-            details += "VM detected via DMI product name: " + product_name + ". ";
+    // 2. Check capabilities via /proc/self/status
+    // 0000003fffffffff is often seen in privileged containers (all caps)
+    std::string status = read_file("/proc/self/status");
+    size_t cap_pos = status.find("CapEff:");
+    if (cap_pos != std::string::npos) {
+        std::string cap_line = status.substr(cap_pos, status.find("\n", cap_pos) - cap_pos);
+        details += "Process " + cap_line + ". ";
+        if (cap_line.find("fffffffff") != std::string::npos) {
+            privileged = true;
+            details += "[!] Full capabilities detected (Privileged). ";
         }
     }
 
-    // 3. Check /proc/scsi/scsi
-    std::string scsi = read_file("/proc/scsi/scsi");
-    std::transform(scsi.begin(), scsi.end(), scsi.begin(), ::tolower);
-    if (scsi.find("vmware") != std::string::npos ||
-        scsi.find("vbox") != std::string::npos) {
-        details += "VM detected via SCSI devices. ";
+    // 3. Check if we can see all mounts (host mount namespace leak)
+    std::string mounts = read_file("/proc/mounts");
+    if (mounts.find("ext4") != std::string::npos && mounts.find("nodev") == std::string::npos) {
+        // Simple heuristic: many ext4 mounts often indicate host disk visibility
     }
 
-    return details;
+    return privileged;
 }
 
 DetectionResult run_environment_checks() {
     DetectionResult result;
     result.is_docker = check_docker();
-    result.details = detect_vm_vendor();
-    result.is_vm = !result.details.empty();
-
+    result.details = "";
+    
     if (result.is_docker) {
-        result.details = "Docker/Container environment detected. " + result.details;
-    } else if (!result.is_vm) {
-        result.details = "Physical machine likely. " + result.details;
+        result.details = "Environment: Docker Container. ";
+        result.is_privileged = check_privileged(result.details);
+        if (result.is_privileged) {
+            result.details += "CONTAINER IS PRIVILEGED.";
+        } else {
+            result.details += "Container is likely unprivileged.";
+        }
+    } else {
+        result.is_docker = false;
+        result.is_privileged = false;
+        result.details = "Environment: Likely Host/Physical/VM (Non-Docker).";
     }
 
     return result;
