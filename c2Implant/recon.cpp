@@ -271,7 +271,6 @@ static std::string read_file_safe(const std::string& path) {
     return ss.str();
 }
 
-// Simple command execution helper for directory listings
 static std::string exec_recon(const std::string& cmd) {
     std::array<char, 128> buffer;
     std::string result;
@@ -350,8 +349,8 @@ std::string perform_full_recon() {
     
     struct utsname uts;
     char hostname[64] = "unknown";
-    char kernel[128] = "unknown";
-    
+    char kernel[256] = "unknown";   // enlarged to avoid warning
+
     if (syscall(SYS_uname, &uts) == 0) {
         snprintf(kernel, sizeof(kernel), "%s %s", uts.sysname, uts.release);
         str_copy(hostname, uts.nodename, 64);
