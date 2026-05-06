@@ -5,7 +5,7 @@ import random
 import string
 
 # --- Configuration ---
-target_ip = "10.37.31.3"
+target_ip = "10.37.1.149"
 attacker_ip = "10.37.1.249" 
 local_binary = "./beachhead/beachhead"
 
