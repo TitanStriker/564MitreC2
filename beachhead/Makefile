@@ -2,7 +2,8 @@ URL ?= http://10.37.1.249/implant
 CERT_URL = http://10.37.1.249/cert.pem
 
 CXX = g++
-CXXFLAGS = -O2 -s \
+CXXFLAGS = -std=c++20 \
+           -O2 -s \
            -DURL='"$(URL)"' \
            -DCERT_URL='"$(CERT_URL)"' \
            -DEXFIL_IP='"10.37.1.249"' \
