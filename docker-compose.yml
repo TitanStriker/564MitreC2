@@ -15,9 +15,7 @@ services:
       context: .
       dockerfile: exfil.Dockerfile
     ports:
-      - "443:443"
-    volumes:
-      - ./c2_outputs.txt:/app/c2_outputs.txt
+      - "8889:8889"
     networks:
       - c2_network
 

