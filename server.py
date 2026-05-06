@@ -84,10 +84,10 @@ def parseAndSendInput():
             msg_id = str(random.randint(0, 10**9))
             data = " ".join(user_input[2:]) if len(user_input) > 2 else ""
 
-            if msg_type in ['READ', 'RITE', 'CMD'] and not data:
+            if msg_type in ['READ', 'RITE', 'CMD', 'GET'] and not data:
                 print(f"{msg_type} requires additional arguments")
                 continue
-            if msg_type not in ['READ', 'RITE', 'CMD'] and data:
+            if msg_type not in ['READ', 'RITE', 'CMD', 'GET'] and data:
                 print(f"{msg_type} should not have arguments")
                 continue
 
