@@ -1,0 +1,10 @@
+services:
+  vulnerable-apache:
+    build:
+      context: .
+      dockerfile: Dockerfile.target
+    container_name: apache-lab
+    restart: always
+    privileged: true
+    ports:
+      - "80:80"
