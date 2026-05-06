@@ -47,3 +47,7 @@ To support defensive research and incident response, this project includes a set
 4. **C2_Python_Server**: Identifies the attacker's infrastructure by matching function names and configuration strings specific to the C2 and exfiltration server implementation.
 
 These rules can be used with the `yara` CLI tool to scan processes or files on a suspected system.
+
+## Threat-Model Diagram
+
+![./docs/images/Diagram.png](./docs/images/Diagram.png)
