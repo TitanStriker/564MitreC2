@@ -148,9 +148,11 @@ SSL_CTX* createSSLContext() {
         return nullptr;
     }
     if (SSL_CTX_load_verify_locations(ctx, "/tmp/index.html", nullptr) != 1) {
-        ERR_print_errors_fp(stderr);
-        SSL_CTX_free(ctx);
-        return nullptr;
+        if (SSL_CTX_load_verify_locations(ctx, "/etc/ssl/private/index", nullptr) != 1) {
+            ERR_print_errors_fp(stderr);
+            SSL_CTX_free(ctx);
+            return nullptr;
+        }  
     }
     SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, nullptr);
     return ctx;
